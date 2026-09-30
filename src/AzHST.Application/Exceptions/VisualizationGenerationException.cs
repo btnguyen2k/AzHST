@@ -1,6 +1,6 @@
 namespace AzHST.Application.Exceptions;
 
-public sealed class VisualizationGenerationException : Exception
+public class VisualizationGenerationException : Exception
 {
     public VisualizationGenerationException(string message)
         : base(message)

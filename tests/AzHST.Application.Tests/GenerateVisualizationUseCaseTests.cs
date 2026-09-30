@@ -7,6 +7,9 @@ namespace AzHST.Application.Tests;
 
 public sealed class GenerateVisualizationUseCaseTests
 {
+    private static readonly DateTimeOffset FixedTime =
+        new(2026, 9, 30, 12, 34, 56, TimeSpan.Zero);
+
     private const string ValidHtml = """
         <!doctype html>
         <html>
@@ -18,12 +21,16 @@ public sealed class GenerateVisualizationUseCaseTests
     [Fact]
     public async Task ExecuteAsync_TrimsInputSecuresHtmlAndSavesArtifact()
     {
-        var client = new StubCopilotClient(ValidHtml);
+        var client = new StubCopilotClient(
+            new VisualizationQueryAssessment
+            {
+                IsValid = true,
+                Message = "Valid Azure visualization request.",
+                SuggestedSlug = "azure-functions",
+            },
+            ValidHtml);
         var store = new StubArtifactStore();
-        var useCase = new GenerateVisualizationUseCase(
-            client,
-            new GeneratedHtmlDocumentProcessor(),
-            store);
+        var useCase = CreateUseCase(client, store);
 
         var result = await useCase.ExecuteAsync(
             "  Explain Azure Functions  ",
@@ -33,25 +40,69 @@ public sealed class GenerateVisualizationUseCaseTests
                 OutputDirectory = "generated",
             });
 
-        Assert.Equal("Explain Azure Functions", client.Query);
-        Assert.Equal("gpt-5", client.Model);
+        var expectedId =
+            $"{FixedTime.ToUnixTimeMilliseconds():x12}-azure-functions";
+
+        Assert.Equal(["assess", "generate"], client.CallOrder);
+        Assert.Equal("Explain Azure Functions", client.AssessmentQuery);
+        Assert.Equal("Explain Azure Functions", client.GenerationQuery);
+        Assert.Equal("gpt-5", client.AssessmentModel);
+        Assert.Equal("gpt-5", client.GenerationModel);
+        Assert.Equal(expectedId, client.VisualizationId);
+        Assert.Equal(expectedId, store.VisualizationId);
         Assert.Equal("generated", store.OutputDirectory);
         Assert.Contains("Content-Security-Policy", store.Html);
+        Assert.Equal(expectedId, result.Id);
         Assert.Equal(store.Artifact, result);
     }
 
     [Fact]
     public async Task ExecuteAsync_UsesAutoModelWhenSettingIsBlank()
     {
-        var client = new StubCopilotClient(ValidHtml);
-        var useCase = new GenerateVisualizationUseCase(
-            client,
-            new GeneratedHtmlDocumentProcessor(),
-            new StubArtifactStore());
+        var client = CreateValidClient();
+        var useCase = CreateUseCase(client, new StubArtifactStore());
 
         await useCase.ExecuteAsync("Compare two services", new AppSettings { Model = " " });
 
-        Assert.Equal(AppSettings.DefaultModel, client.Model);
+        Assert.Equal(AppSettings.DefaultModel, client.AssessmentModel);
+        Assert.Equal(AppSettings.DefaultModel, client.GenerationModel);
+    }
+
+    [Fact]
+    public async Task ExecuteAsync_RejectsInvalidAssessedQueryWithoutGeneratingHtml()
+    {
+        var client = new StubCopilotClient(
+            new VisualizationQueryAssessment
+            {
+                IsValid = false,
+                Message = "Ask about an Azure or Microsoft cloud topic that can be visualized.",
+            },
+            ValidHtml);
+        var store = new StubArtifactStore();
+        var useCase = CreateUseCase(client, store);
+
+        var exception = await Assert.ThrowsAsync<InvalidVisualizationQueryException>(
+            () => useCase.ExecuteAsync("Write a birthday poem", new AppSettings()));
+
+        Assert.Equal(
+            "Ask about an Azure or Microsoft cloud topic that can be visualized.",
+            exception.Message);
+        Assert.Equal(["assess"], client.CallOrder);
+        Assert.False(store.SaveCalled);
+    }
+
+    [Fact]
+    public async Task ExecuteAsync_UsesHelpfulFallbackForEmptyInvalidMessage()
+    {
+        var client = new StubCopilotClient(
+            new VisualizationQueryAssessment { IsValid = false },
+            ValidHtml);
+        var useCase = CreateUseCase(client, new StubArtifactStore());
+
+        var exception = await Assert.ThrowsAsync<InvalidVisualizationQueryException>(
+            () => useCase.ExecuteAsync("Tell me a joke", new AppSettings()));
+
+        Assert.Contains("Azure or Microsoft services", exception.Message);
     }
 
     [Theory]
@@ -59,71 +110,131 @@ public sealed class GenerateVisualizationUseCaseTests
     [InlineData("   ")]
     public async Task ExecuteAsync_RejectsBlankQuery(string query)
     {
-        var client = new StubCopilotClient(ValidHtml);
-        var useCase = new GenerateVisualizationUseCase(
-            client,
-            new GeneratedHtmlDocumentProcessor(),
-            new StubArtifactStore());
+        var client = CreateValidClient();
+        var useCase = CreateUseCase(client, new StubArtifactStore());
 
         var exception = await Assert.ThrowsAsync<VisualizationGenerationException>(
             () => useCase.ExecuteAsync(query, new AppSettings()));
 
         Assert.Contains("Enter", exception.Message);
-        Assert.Null(client.Query);
+        Assert.Empty(client.CallOrder);
     }
 
     [Fact]
     public async Task ExecuteAsync_RejectsOversizedQuery()
     {
-        var client = new StubCopilotClient(ValidHtml);
-        var useCase = new GenerateVisualizationUseCase(
-            client,
-            new GeneratedHtmlDocumentProcessor(),
-            new StubArtifactStore());
+        var client = CreateValidClient();
+        var useCase = CreateUseCase(client, new StubArtifactStore());
 
         var query = new string('x', GenerateVisualizationUseCase.MaximumQueryLength + 1);
 
         await Assert.ThrowsAsync<VisualizationGenerationException>(
             () => useCase.ExecuteAsync(query, new AppSettings()));
-        Assert.Null(client.Query);
+        Assert.Empty(client.CallOrder);
     }
 
-    private sealed class StubCopilotClient(string response) : ICopilotVisualizationClient
+    private static GenerateVisualizationUseCase CreateUseCase(
+        StubCopilotClient client,
+        StubArtifactStore store)
     {
-        public string? Query { get; private set; }
+        return new GenerateVisualizationUseCase(
+            client,
+            new GeneratedHtmlDocumentProcessor(),
+            store,
+            new VisualizationArtifactIdGenerator(new FixedTimeProvider(FixedTime)));
+    }
 
-        public string? Model { get; private set; }
+    private static StubCopilotClient CreateValidClient()
+    {
+        return new StubCopilotClient(
+            new VisualizationQueryAssessment
+            {
+                IsValid = true,
+                Message = "Valid.",
+                SuggestedSlug = "azure-visualization",
+            },
+            ValidHtml);
+    }
 
-        public Task<string> GenerateHtmlAsync(
+    private sealed class StubCopilotClient(
+        VisualizationQueryAssessment assessment,
+        string response) : ICopilotVisualizationClient
+    {
+        public List<string> CallOrder { get; } = [];
+
+        public string? AssessmentQuery { get; private set; }
+
+        public string? AssessmentModel { get; private set; }
+
+        public string? GenerationQuery { get; private set; }
+
+        public string? GenerationModel { get; private set; }
+
+        public string? VisualizationId { get; private set; }
+
+        public Task<VisualizationQueryAssessment> AssessQueryAsync(
             string query,
             string model,
             IProgress<GenerationProgress>? progress = null,
             CancellationToken cancellationToken = default)
         {
-            Query = query;
-            Model = model;
+            CallOrder.Add("assess");
+            AssessmentQuery = query;
+            AssessmentModel = model;
+            return Task.FromResult(assessment);
+        }
+
+        public Task<string> GenerateHtmlAsync(
+            string query,
+            string model,
+            string visualizationId,
+            IProgress<GenerationProgress>? progress = null,
+            CancellationToken cancellationToken = default)
+        {
+            CallOrder.Add("generate");
+            GenerationQuery = query;
+            GenerationModel = model;
+            VisualizationId = visualizationId;
             return Task.FromResult(response);
         }
     }
 
     private sealed class StubArtifactStore : IGeneratedArtifactStore
     {
-        public VisualizationArtifact Artifact { get; } = new(
-            "/tmp/azhst.html",
-            new Uri("file:///tmp/azhst.html"));
+        public VisualizationArtifact? Artifact { get; private set; }
+
+        public bool SaveCalled { get; private set; }
+
+        public string? VisualizationId { get; private set; }
 
         public string? Html { get; private set; }
 
         public string? OutputDirectory { get; private set; }
 
         public Task<VisualizationArtifact> SaveAsync(
+            string visualizationId,
             string html,
             string outputDirectory,
             CancellationToken cancellationToken = default)
         {
+            SaveCalled = true;
+            VisualizationId = visualizationId;
             Html = html;
             OutputDirectory = outputDirectory;
+            Artifact = new VisualizationArtifact(
+                visualizationId,
+                $"/tmp/{visualizationId}",
+                $"/tmp/{visualizationId}/index.html",
+                new Uri($"file:///tmp/{visualizationId}/index.html"));
             return Task.FromResult(Artifact);
+        }
+    }
+
+    private sealed class FixedTimeProvider(DateTimeOffset utcNow) : TimeProvider
+    {
+        public override DateTimeOffset GetUtcNow()
+        {
+            return utcNow;
         }
     }
 }

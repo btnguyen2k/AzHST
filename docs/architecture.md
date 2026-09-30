@@ -6,10 +6,13 @@ AzHST answers Azure and Microsoft services questions with a visual artifact rath
 
 1. Check GitHub CLI authentication.
 2. Accept a question and local configuration.
-3. Ask GitHub Copilot for one self-contained HTML document.
-4. Validate and constrain the generated document.
-5. Save it to a user-controlled local directory.
-6. Preview it in Avalonia's native WebView and optionally open it externally.
+3. Ask GitHub Copilot to classify Azure relevance and visual suitability.
+4. Reject invalid requests with actionable guidance.
+5. Generate a timestamp-and-slug visualization ID.
+6. Ask GitHub Copilot for one self-contained interactive HTML document.
+7. Validate and constrain the generated document.
+8. Save it as `generated\<id>\index.html`.
+9. Preview it in Avalonia's native WebView and optionally open it externally.
 
 The design keeps model orchestration, operating-system integration, and UI concerns replaceable. The current implementation intentionally does not include conversation persistence, prompt history, Azure API access, retrieval-augmented generation, custom Copilot tools, or deployment packaging.
 
@@ -37,6 +40,7 @@ The dependency-free application layer contains:
 - request and result models
 - ports for Copilot, authentication, settings, file output, and browser launch
 - `GenerateVisualizationUseCase`, which coordinates one request
+- `VisualizationArtifactIdGenerator`, which creates timestamp-and-slug IDs
 - `GeneratedHtmlDocumentProcessor`, which extracts and secures model output
 
 This layer can be tested without Avalonia, GitHub Copilot, GitHub CLI, or a filesystem.
@@ -48,11 +52,11 @@ Infrastructure implements the application ports:
 - `CopilotVisualizationClient` owns the Copilot client and session lifecycle
 - `GitHubCliAuthenticationService` performs a non-interactive `gh` account check
 - `JsonSettingsRepository` performs atomic JSON settings writes
-- `FileGeneratedArtifactStore` writes unique UTF-8 HTML artifacts
+- `FileGeneratedArtifactStore` atomically writes UTF-8 `index.html` files inside per-artifact directories
 - `ExternalBrowserLauncher` delegates file URIs to the operating system
 - `ApplicationPaths` centralizes per-user storage locations
 
-Each generation currently uses a new Copilot session. This keeps lifecycle and failure isolation simple for version one; a future multi-turn chat feature can introduce a scoped session manager without changing the application use case.
+Assessment and page generation currently use separate isolated Copilot sessions. This keeps lifecycle and failure isolation simple for version one; a future multi-turn workflow can reuse one client connection without changing the application use case.
 
 ### `AzHST.Desktop`
 
@@ -79,15 +83,21 @@ sequenceDiagram
 
     User->>VM: Submit question
     VM->>UC: Execute(question, settings)
-    UC->>Copilot: GenerateHtml(question, model)
-    Copilot->>Copilot: Start isolated runtime and session
-    Copilot-->>UC: Model response
-    UC->>Policy: Extract and secure HTML
-    Policy-->>UC: Constrained document
-    UC->>Store: Save document
-    Store-->>UC: File path and URI
-    UC-->>VM: Visualization artifact
-    VM->>View: Navigate and/or open
+    UC->>Copilot: AssessQuery(question, model)
+    Copilot-->>UC: Validity, message, suggested slug
+    alt Invalid request
+        UC-->>VM: Actionable validation message
+    else Valid request
+        UC->>UC: Create hex timestamp + slug ID
+        UC->>Copilot: GenerateHtml(question, model, ID)
+        Copilot-->>UC: HTML document
+        UC->>Policy: Extract and secure HTML
+        Policy-->>UC: Constrained document
+        UC->>Store: Save ID/index.html
+        Store-->>UC: ID, directory, file path, and URI
+        UC-->>VM: Visualization artifact
+        VM->>View: Navigate and/or open
+    end
 ```
 
 Progress messages cross the application boundary through `IProgress<GenerationProgress>`. Cancellation is passed into the Copilot request and file write.
@@ -122,7 +132,7 @@ Debug builds read two test-only environment overrides at the composition root. `
 
 ### Local files
 
-Settings are written through a temporary file and atomically replaced. Generated file names include UTC time and a random suffix. The configured output path is normalized before use, and persistence failures are surfaced in the UI rather than represented as success.
+Settings are written through a temporary file and atomically replaced. Visualization IDs combine a padded hexadecimal Unix-millisecond timestamp with a sanitized slug, for example `0199abcdef12-azure-app-gateway`. The generated root defaults to `.\generated`; each ID receives its own directory and atomically written `index.html`. Unsafe IDs and accidental overwrites are rejected, and persistence failures are surfaced in the UI rather than represented as success.
 
 ## Cross-platform WebView strategy
 
@@ -141,7 +151,7 @@ Version one persists:
 | Setting | Default | Purpose |
 |---|---|---|
 | Model | `auto` | Let Copilot choose an available model |
-| Output directory | Local application data under `AzHST\generated` | Store generated pages |
+| Output directory | `.\generated` under the working directory | Store `<id>\index.html` visualization artifacts |
 | Open externally | `false` | Also launch each result in the default browser |
 
 Model discovery is deliberately deferred. Free-text model configuration allows testing new Copilot models without releasing a new desktop build, while invalid model errors remain visible.

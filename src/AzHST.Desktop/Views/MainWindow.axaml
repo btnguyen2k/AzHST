@@ -284,6 +284,7 @@
           CornerRadius="14">
         <Grid RowDefinitions="Auto,Auto,Auto">
           <TextBox
+              AutomationProperties.AutomationId="QueryInput"
               Classes="query"
               AcceptsReturn="True"
               MaxHeight="150"
@@ -293,6 +294,7 @@
               TextWrapping="Wrap" />
           <Grid Grid.Row="1" Margin="0,12,0,0" ColumnDefinitions="*,Auto,Auto">
             <TextBlock
+                AutomationProperties.AutomationId="StatusMessage"
                 VerticalAlignment="Center"
                 Foreground="#8FA4CB"
                 Text="{Binding StatusMessage}"
@@ -305,6 +307,7 @@
                 Content="Cancel"
                 IsVisible="{Binding IsGenerating}" />
             <Button
+                AutomationProperties.AutomationId="GenerateButton"
                 Grid.Column="2"
                 Classes="primary"
                 Command="{Binding GenerateCommand}"

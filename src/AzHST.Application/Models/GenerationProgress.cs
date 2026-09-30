@@ -3,6 +3,7 @@ namespace AzHST.Application.Models;
 public enum GenerationStage
 {
     Connecting,
+    Assessing,
     Generating,
     Securing,
     Saving,

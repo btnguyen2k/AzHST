@@ -14,29 +14,68 @@ public sealed class FileGeneratedArtifactStore : IGeneratedArtifactStore
     }
 
     public async Task<VisualizationArtifact> SaveAsync(
+        string visualizationId,
         string html,
         string outputDirectory,
         CancellationToken cancellationToken = default)
     {
+        ValidateVisualizationId(visualizationId);
         ArgumentException.ThrowIfNullOrWhiteSpace(html);
 
-        var directory = string.IsNullOrWhiteSpace(outputDirectory)
+        var rootDirectory = string.IsNullOrWhiteSpace(outputDirectory)
             ? _defaultOutputDirectory
             : outputDirectory.Trim();
 
-        directory = Path.GetFullPath(directory);
-        Directory.CreateDirectory(directory);
+        rootDirectory = Path.GetFullPath(rootDirectory);
+        var artifactDirectory = Path.Combine(rootDirectory, visualizationId);
+        var filePath = Path.Combine(artifactDirectory, "index.html");
+        var temporaryFile = Path.Combine(
+            artifactDirectory,
+            $".index-{Guid.NewGuid():N}.tmp");
 
-        var suffix = Guid.NewGuid().ToString("N")[..8];
-        var fileName = $"azhst-{DateTimeOffset.UtcNow:yyyyMMdd-HHmmss}-{suffix}.html";
-        var filePath = Path.Combine(directory, fileName);
+        Directory.CreateDirectory(artifactDirectory);
 
-        await File.WriteAllTextAsync(
+        try
+        {
+            await File.WriteAllTextAsync(
+                temporaryFile,
+                html,
+                new UTF8Encoding(encoderShouldEmitUTF8Identifier: false),
+                cancellationToken);
+
+            File.Move(temporaryFile, filePath, overwrite: false);
+        }
+        finally
+        {
+            if (File.Exists(temporaryFile))
+            {
+                File.Delete(temporaryFile);
+            }
+        }
+
+        return new VisualizationArtifact(
+            visualizationId,
+            artifactDirectory,
             filePath,
-            html,
-            new UTF8Encoding(encoderShouldEmitUTF8Identifier: false),
-            cancellationToken);
+            new Uri(filePath, UriKind.Absolute));
+    }
 
-        return new VisualizationArtifact(filePath, new Uri(filePath, UriKind.Absolute));
+    private static void ValidateVisualizationId(string visualizationId)
+    {
+        ArgumentException.ThrowIfNullOrWhiteSpace(visualizationId);
+
+        if (visualizationId is "." or ".."
+            || visualizationId.Contains('/')
+            || visualizationId.Contains('\\')
+            || !string.Equals(
+                visualizationId,
+                Path.GetFileName(visualizationId),
+                StringComparison.Ordinal)
+            || visualizationId.IndexOfAny(Path.GetInvalidFileNameChars()) >= 0)
+        {
+            throw new ArgumentException(
+                "The visualization ID must be a single valid directory name.",
+                nameof(visualizationId));
+        }
     }
 }

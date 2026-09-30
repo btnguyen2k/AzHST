@@ -40,7 +40,7 @@
       <TextBlock
           FontWeight="SemiBold"
           Foreground="#DCE7FF"
-          Text="Generated HTML directory" />
+          Text="Generated pages root directory" />
       <TextBox
           PlaceholderText="Local application data directory"
           Text="{Binding OutputDirectory, Mode=TwoWay}" />
@@ -48,7 +48,7 @@
           Margin="0,0,0,12"
           FontSize="12"
           Foreground="#7186AD"
-          Text="Leave empty to use AzHST's local application data folder." />
+          Text="Leave empty to use the generated folder under the application's working directory." />
 
       <CheckBox
           Content="Also open each result in the default browser"

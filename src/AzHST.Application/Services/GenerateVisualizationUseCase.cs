@@ -11,15 +11,18 @@ public sealed class GenerateVisualizationUseCase
     private readonly ICopilotVisualizationClient _copilotClient;
     private readonly GeneratedHtmlDocumentProcessor _documentProcessor;
     private readonly IGeneratedArtifactStore _artifactStore;
+    private readonly VisualizationArtifactIdGenerator _artifactIdGenerator;
 
     public GenerateVisualizationUseCase(
         ICopilotVisualizationClient copilotClient,
         GeneratedHtmlDocumentProcessor documentProcessor,
-        IGeneratedArtifactStore artifactStore)
+        IGeneratedArtifactStore artifactStore,
+        VisualizationArtifactIdGenerator artifactIdGenerator)
     {
         _copilotClient = copilotClient;
         _documentProcessor = documentProcessor;
         _artifactStore = artifactStore;
+        _artifactIdGenerator = artifactIdGenerator;
     }
 
     public async Task<VisualizationArtifact> ExecuteAsync(
@@ -46,9 +49,26 @@ public sealed class GenerateVisualizationUseCase
             ? AppSettings.DefaultModel
             : settings.Model.Trim();
 
+        var assessment = await _copilotClient.AssessQueryAsync(
+            normalizedQuery,
+            model,
+            progress,
+            cancellationToken);
+
+        if (!assessment.IsValid)
+        {
+            throw new InvalidVisualizationQueryException(
+                NormalizeInvalidQueryMessage(assessment.Message));
+        }
+
+        var visualizationId = _artifactIdGenerator.Create(
+            assessment.SuggestedSlug,
+            normalizedQuery);
+
         var rawResponse = await _copilotClient.GenerateHtmlAsync(
             normalizedQuery,
             model,
+            visualizationId,
             progress,
             cancellationToken);
 
@@ -63,6 +83,7 @@ public sealed class GenerateVisualizationUseCase
             "Saving the visualization..."));
 
         var artifact = await _artifactStore.SaveAsync(
+            visualizationId,
             securedHtml,
             settings.OutputDirectory,
             cancellationToken);
@@ -72,5 +93,21 @@ public sealed class GenerateVisualizationUseCase
             "Visualization ready."));
 
         return artifact;
+    }
+
+    private static string NormalizeInvalidQueryMessage(string message)
+    {
+        const string defaultMessage =
+            "Ask about Azure or Microsoft services using a question that can be explained visually, such as a service flow, comparison, or architecture.";
+
+        if (string.IsNullOrWhiteSpace(message))
+        {
+            return defaultMessage;
+        }
+
+        var normalized = message.Trim();
+        return normalized.Length <= 500
+            ? normalized
+            : normalized[..500];
     }
 }

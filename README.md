@@ -11,8 +11,10 @@ This repository contains the first functional vertical slice. Authentication, co
 - Avalonia 12 desktop UI targeting .NET 10
 - GitHub CLI sign-in flow and authentication status
 - GitHub Copilot SDK integration with no agent tools or host access enabled
+- Copilot-powered query validation for Azure relevance and visual suitability
 - Visual prompts for service explanations, comparisons, integrations, and architecture proposals
 - Self-contained HTML generation with inline CSS, JavaScript, and SVG
+- Timestamp-and-slug visualization IDs with one directory per generated page
 - Content Security Policy injection and external-resource rejection
 - Native WebView preview on Windows, macOS, and Linux
 - Automatic default-browser fallback and configurable browser launch
@@ -84,24 +86,44 @@ src\
   AzHST.Desktop\           Avalonia views, view models, UI services, and composition root
 tests\
   AzHST.Application.Tests\ Core orchestration and generated-document policy tests
+  AzHST.Infrastructure.Tests\ Filesystem artifact persistence tests
 docs\
   architecture.md          Design, data flow, trust boundaries, and roadmap
 ```
 
 Dependencies point inward: Desktop and Infrastructure depend on Application; Application has no UI, SDK, or operating-system dependencies.
 
-## Local data
+## Generation flow
 
-AzHST uses the operating system's local application data folder:
+For each submitted question, AzHST:
+
+1. Uses Copilot structured output to verify that the request is related to Azure or Microsoft cloud services and can produce a meaningful visual explanation.
+2. Shows the returned guidance without generating a page when the request is invalid.
+3. Creates an ID from the hexadecimal Unix timestamp and a sanitized Copilot-suggested slug.
+4. Makes a second Copilot request for a standalone interactive HTML page.
+5. Secures and saves the page, then navigates the embedded WebView to it.
+
+The default artifact layout is relative to the application's working directory:
+
+```text
+generated\
+  0199abcdef12-azure-app-gateway\
+    index.html
+```
+
+The generated root can be changed in Settings.
+
+## Local application data
+
+Settings and Copilot runtime data use the operating system's local application data folder:
 
 ```text
 AzHST\
   settings.json
-  generated\
   copilot\
 ```
 
-The generated output directory can be changed in Settings. Authentication tokens remain managed by GitHub CLI or the bundled Copilot runtime and are never written to `settings.json`.
+Authentication tokens remain managed by GitHub CLI or the bundled Copilot runtime and are never written to `settings.json`.
 
 ## Security model
 

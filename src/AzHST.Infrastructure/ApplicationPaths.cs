@@ -16,10 +16,13 @@ public sealed record ApplicationPaths(
         }
 
         var dataDirectory = Path.Combine(localData, "AzHST");
+        var generatedPagesDirectory = Path.GetFullPath(
+            Path.Combine(Environment.CurrentDirectory, "generated"));
+
         return new ApplicationPaths(
             dataDirectory,
             Path.Combine(dataDirectory, "settings.json"),
-            Path.Combine(dataDirectory, "generated"),
+            generatedPagesDirectory,
             Path.Combine(dataDirectory, "copilot"));
     }
 }

@@ -1,4 +1,5 @@
 using AzHST.Application.Abstractions;
+using AzHST.Application.Exceptions;
 using AzHST.Application.Models;
 using AzHST.Application.Services;
 using AzHST.Desktop.Services;
@@ -179,6 +180,10 @@ public sealed partial class MainWindowViewModel : ObservableObject
         catch (OperationCanceledException)
         {
             StatusMessage = "Generation cancelled.";
+        }
+        catch (InvalidVisualizationQueryException exception)
+        {
+            StatusMessage = exception.Message;
         }
         catch (Exception exception)
         {

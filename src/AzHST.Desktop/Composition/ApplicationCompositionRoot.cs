@@ -19,11 +19,13 @@ internal static class ApplicationCompositionRoot
         var artifactStore = new FileGeneratedArtifactStore(paths);
         var copilotClient = new CopilotVisualizationClient(paths);
         var documentProcessor = new GeneratedHtmlDocumentProcessor();
+        var artifactIdGenerator = new VisualizationArtifactIdGenerator();
         var webViewAvailability = WebViewAvailability.Detect();
         var generationUseCase = new GenerateVisualizationUseCase(
             copilotClient,
             documentProcessor,
-            artifactStore);
+            artifactStore,
+            artifactIdGenerator);
 
         MainWindow? mainWindow = null;
         var settingsDialogService = new SettingsDialogService(() => mainWindow);
