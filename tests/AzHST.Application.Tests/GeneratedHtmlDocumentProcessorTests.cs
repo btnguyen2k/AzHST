@@ -10,15 +10,9 @@ public sealed class GeneratedHtmlDocumentProcessorTests
     [Fact]
     public void Process_AcceptsFencedHtmlAndAddsSecurityMetadata()
     {
-        var response = """
-            Here is the page:
-            ```html
-            <html>
-            <head><title>Result</title></head>
-            <body><script>document.body.dataset.ready = "true";</script></body>
-            </html>
-            ```
-            """;
+        var response = $"Here is the page:{Environment.NewLine}```html{Environment.NewLine}"
+            + CreateDocument()
+            + $"{Environment.NewLine}```";
 
         var result = _processor.Process(response);
 
@@ -31,16 +25,9 @@ public sealed class GeneratedHtmlDocumentProcessorTests
     [Fact]
     public void Process_ReplacesModelProvidedContentSecurityPolicy()
     {
-        var response = """
-            <!doctype html>
-            <html>
-            <head>
-              <meta http-equiv="Content-Security-Policy" content="default-src *">
-              <title>Result</title>
-            </head>
-            <body>Safe</body>
-            </html>
-            """;
+        var response = CreateDocument(
+            headMarkup:
+                """<meta http-equiv="Content-Security-Policy" content="default-src *">""");
 
         var result = _processor.Process(response);
 
@@ -51,13 +38,7 @@ public sealed class GeneratedHtmlDocumentProcessorTests
     [Fact]
     public void Process_RemovesBaseElement()
     {
-        var response = """
-            <!doctype html>
-            <html>
-            <head><base href="/"><title>Result</title></head>
-            <body>Safe</body>
-            </html>
-            """;
+        var response = CreateDocument(headMarkup: """<base href="/">""");
 
         var result = _processor.Process(response);
 
@@ -70,13 +51,7 @@ public sealed class GeneratedHtmlDocumentProcessorTests
     [InlineData("""<style>.hero { background: url(//example.com/image.png); }</style>""")]
     public void Process_RejectsExternalOrActiveReferences(string unsafeMarkup)
     {
-        var response = $"""
-            <!doctype html>
-            <html>
-            <head><title>Result</title></head>
-            <body>{unsafeMarkup}</body>
-            </html>
-            """;
+        var response = CreateDocument(bodyMarkup: unsafeMarkup);
 
         var exception = Assert.Throws<VisualizationGenerationException>(
             () => _processor.Process(response));
@@ -96,6 +71,50 @@ public sealed class GeneratedHtmlDocumentProcessorTests
     }
 
     [Fact]
+    public void Process_RejectsPageWithoutJavaScriptInteraction()
+    {
+        var response = CreateDocument(includeScript: false);
+
+        var exception = Assert.Throws<VisualizationGenerationException>(
+            () => _processor.Process(response));
+
+        Assert.Contains("interactive controls", exception.Message);
+    }
+
+    [Fact]
+    public void Process_RejectsPageWithoutSemanticControl()
+    {
+        var response = CreateDocument(includeControl: false);
+
+        var exception = Assert.Throws<VisualizationGenerationException>(
+            () => _processor.Process(response));
+
+        Assert.Contains("interactive controls", exception.Message);
+    }
+
+    [Fact]
+    public void Process_RejectsPageWithoutPurposefulMotion()
+    {
+        var response = CreateDocument(includeMotion: false);
+
+        var exception = Assert.Throws<VisualizationGenerationException>(
+            () => _processor.Process(response));
+
+        Assert.Contains("animation or motion", exception.Message);
+    }
+
+    [Fact]
+    public void Process_RejectsPageWithoutReducedMotionSupport()
+    {
+        var response = CreateDocument(includeReducedMotion: false);
+
+        var exception = Assert.Throws<VisualizationGenerationException>(
+            () => _processor.Process(response));
+
+        Assert.Contains("reduced-motion", exception.Message);
+    }
+
+    [Fact]
     public void Process_RejectsOversizedDocument()
     {
         var payload = new string('x', GeneratedHtmlDocumentProcessor.MaximumDocumentLength);
@@ -105,5 +124,57 @@ public sealed class GeneratedHtmlDocumentProcessorTests
             () => _processor.Process(response));
 
         Assert.Contains("safety limit", exception.Message);
+    }
+
+    private static string CreateDocument(
+        string headMarkup = "",
+        string bodyMarkup = "",
+        bool includeScript = true,
+        bool includeControl = true,
+        bool includeMotion = true,
+        bool includeReducedMotion = true)
+    {
+        var motion = includeMotion ? "transition: transform 200ms ease;" : string.Empty;
+        var reducedMotion = includeReducedMotion
+            ? """
+              @media (prefers-reduced-motion: reduce) {
+                .node { transition: none; }
+              }
+              """
+            : string.Empty;
+        var control = includeControl
+            ? """<button id="next" type="button">Next step</button>"""
+            : string.Empty;
+        var script = includeScript
+            ? """
+              <script>
+                document.querySelector("#next")?.addEventListener("click", () => {
+                  document.querySelector(".node")?.classList.toggle("active");
+                });
+              </script>
+              """
+            : string.Empty;
+
+        return $$"""
+            <!doctype html>
+            <html>
+            <head>
+              {{headMarkup}}
+              <title>Result</title>
+              <style>
+                .node { {{motion}} }
+                {{reducedMotion}}
+              </style>
+            </head>
+            <body>
+              <main>
+                {{control}}
+                <div class="node">Safe visualization</div>
+                {{bodyMarkup}}
+              </main>
+              {{script}}
+            </body>
+            </html>
+            """;
     }
 }

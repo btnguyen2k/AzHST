@@ -40,11 +40,44 @@ public sealed partial class GeneratedHtmlDocumentProcessor
                 "The generated page references external content. Regenerate it as a self-contained visualization.");
         }
 
+        ValidateExperienceContract(html);
+
         html = ExistingContentSecurityPolicyRegex().Replace(html, string.Empty);
         html = BaseElementRegex().Replace(html, string.Empty);
 
         var head = HeadElementRegex().Match(html);
         return html.Insert(head.Index + head.Length, $"{Environment.NewLine}{SecurityMetadata}");
+    }
+
+    private static void ValidateExperienceContract(string html)
+    {
+        var hasInlineScript = false;
+        foreach (Match match in InlineScriptRegex().Matches(html))
+        {
+            if (!string.IsNullOrWhiteSpace(match.Groups["content"].Value))
+            {
+                hasInlineScript = true;
+                break;
+            }
+        }
+
+        if (!hasInlineScript || !InteractiveControlRegex().IsMatch(html))
+        {
+            throw new VisualizationGenerationException(
+                "Copilot returned a static page without the required interactive controls. Try generating the visualization again.");
+        }
+
+        if (!PurposefulMotionRegex().IsMatch(html))
+        {
+            throw new VisualizationGenerationException(
+                "Copilot returned a page without the required animation or motion. Try generating the visualization again.");
+        }
+
+        if (!ReducedMotionRegex().IsMatch(html))
+        {
+            throw new VisualizationGenerationException(
+                "Copilot returned an animated page without reduced-motion support. Try generating the visualization again.");
+        }
     }
 
     private static string ExtractHtml(string response)
@@ -103,6 +136,26 @@ public sealed partial class GeneratedHtmlDocumentProcessor
         """<body\b[^>]*>""",
         RegexOptions.IgnoreCase | RegexOptions.CultureInvariant)]
     private static partial Regex BodyElementRegex();
+
+    [GeneratedRegex(
+        """<script\b[^>]*>(?<content>[\s\S]*?)</script\s*>""",
+        RegexOptions.IgnoreCase | RegexOptions.CultureInvariant)]
+    private static partial Regex InlineScriptRegex();
+
+    [GeneratedRegex(
+        """<(?:button|input|select)\b""",
+        RegexOptions.IgnoreCase | RegexOptions.CultureInvariant)]
+    private static partial Regex InteractiveControlRegex();
+
+    [GeneratedRegex(
+        """(?:@keyframes\b|\b(?:animation|transition)(?:-[a-z-]+)?\s*:(?!\s*(?:none\b|0(?:ms|s)?\b))|\.animate\s*\(|\brequestAnimationFrame\s*\()""",
+        RegexOptions.IgnoreCase | RegexOptions.CultureInvariant)]
+    private static partial Regex PurposefulMotionRegex();
+
+    [GeneratedRegex(
+        """prefers-reduced-motion\s*:\s*reduce""",
+        RegexOptions.IgnoreCase | RegexOptions.CultureInvariant)]
+    private static partial Regex ReducedMotionRegex();
 
     [GeneratedRegex(
         """(?:src|href)\s*=\s*["']\s*(?:https?:|file:|ftp:|//|javascript:)""",

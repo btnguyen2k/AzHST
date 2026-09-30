@@ -13,8 +13,26 @@ public sealed class GenerateVisualizationUseCaseTests
     private const string ValidHtml = """
         <!doctype html>
         <html>
-        <head><title>Azure Functions</title></head>
-        <body><main>Visualization</main></body>
+        <head>
+          <title>Azure Functions</title>
+          <style>
+            .active { transition: transform 200ms ease; }
+            @media (prefers-reduced-motion: reduce) {
+              .active { transition: none; }
+            }
+          </style>
+        </head>
+        <body>
+          <main>
+            <button id="next" type="button">Next step</button>
+            <div id="stage">Visualization</div>
+          </main>
+          <script>
+            document.querySelector("#next").addEventListener("click", () => {
+              document.querySelector("#stage").classList.toggle("active");
+            });
+          </script>
+        </body>
         </html>
         """;
 

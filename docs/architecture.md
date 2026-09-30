@@ -111,6 +111,8 @@ Generated HTML is treated as untrusted input. The document processor:
 - accepts only a complete `<html>`, `<head>`, and `<body>` document
 - strips surrounding prose or an HTML Markdown fence
 - enforces a 4 MB document limit
+- requires non-empty inline JavaScript and at least one semantic interactive control
+- requires CSS or JavaScript motion plus a `prefers-reduced-motion: reduce` fallback
 - rejects external or active `src` and `href` schemes
 - rejects remote CSS `url(...)` resources
 - removes `<base>` elements
@@ -118,7 +120,7 @@ Generated HTML is treated as untrusted input. The document processor:
 - injects a policy that blocks network connections, frames, forms, objects, navigation bases, and external resources
 - blocks WebView navigation away from the generated local file and handles new-window requests
 
-Inline script is allowed because lightweight interaction is a core product requirement. The injected policy still blocks script-initiated network access. A future release can add a stricter HTML parser and an explicit "interactive content" setting.
+Inline script is allowed because interaction is a core product requirement. The generation contract preserves concise text sections while requiring a prominent visual stage, question-appropriate stateful controls, purposeful motion, visible state, keyboard operation, and a reduced-motion equivalent. The injected policy still blocks script-initiated network access. A future release can add a stricter HTML parser and an explicit "interactive content" setting.
 
 ### Agent capabilities
 

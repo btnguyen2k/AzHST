@@ -38,12 +38,31 @@ public sealed class CopilotVisualizationClient : ICopilotVisualizationClient
 
         Convert the user's question into one polished, accurate, self-contained HTML5 document that explains the answer visually.
 
-        Output requirements:
+        Experience requirements:
+        - Preserve clear, concise text sections for explanation, trade-offs, recommendations, and production caveats.
+        - Put a prominent interactive visual stage near the top of the page. It must teach the central concept rather than act as decoration.
+        - Include at least one stateful JavaScript interaction suited to the question:
+          - service or request flow: Play/Pause, Previous/Next, and Reset controls that highlight the active component, connection, and step explanation
+          - architecture: selectable request paths, deployment scenarios, regions, or failure modes
+          - comparison: selectable criteria, synchronized highlighting, or scenario-based recommendations
+          - decision guide or implementation plan: progressive steps, filters, or selectable requirements
+        - Include at least one purposeful animated sequence that shows movement, causality, state transition, failover, scaling, or data flow. A color change alone is not sufficient.
+        - Keep important information visible outside the animation. Animation enhances the explanation and never becomes the only way to obtain it.
+        - Show the current state in text, keep controls visibly selected or disabled when appropriate, and provide a legend when colors, line styles, or icons carry meaning.
+
+        Motion and interaction requirements:
+        - Prefer short CSS transform and opacity transitions. Avoid continuous decorative motion, excessive pulsing, parallax, confetti, or animation that competes with reading.
+        - Do not create an infinite animation unless it represents an intentionally running system, and always provide a way to pause it.
+        - Provide obvious keyboard-operable controls using semantic button, input, or select elements. Use ARIA only where native semantics are insufficient.
+        - Include a @media (prefers-reduced-motion: reduce) rule that removes non-essential transitions and animations.
+        - If JavaScript starts motion automatically, check window.matchMedia("(prefers-reduced-motion: reduce)") first and provide Pause and Replay controls.
+        - Keep all controls and the complete explanation usable when motion is reduced.
+
+        Document requirements:
         - Return only the complete HTML document, beginning with <!doctype html>. Do not use Markdown fences or commentary.
         - Include all CSS in one <style> element and all JavaScript in inline <script> elements.
-        - Include meaningful JavaScript-powered interaction that improves understanding, such as a step-through flow, selectable architecture path, comparison toggle, or animated request lifecycle.
         - Do not use external resources, network requests, external URLs in src or href attributes, forms, iframes, plugins, local storage, eval, or dynamic code loading.
-        - Use semantic HTML, responsive layout, accessible color contrast, keyboard-friendly interactions, and reduced-motion support.
+        - Use semantic HTML, responsive layout, accessible color contrast, visible focus states, and layouts that remain usable at narrow widths.
         - Prefer concise visual explanations: architecture diagrams made with inline SVG or HTML/CSS, process flows, comparison tables, feature cards, decision guidance, and clearly labeled callouts.
         - Clearly distinguish facts, assumptions, recommendations, trade-offs, and security or cost considerations.
         - For architecture requests, show boundaries, identities, data flows, protocols, resiliency, observability, governance, and operational concerns where relevant.
@@ -138,7 +157,7 @@ public sealed class CopilotVisualizationClient : ICopilotVisualizationClient
 
         progress?.Report(new GenerationProgress(
             GenerationStage.Generating,
-            $"Generating the page with {model}..."));
+            $"Generating an interactive visualization with {model}..."));
 
         AssistantMessageEvent? response;
         try

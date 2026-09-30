@@ -100,7 +100,7 @@ For each submitted question, AzHST:
 1. Uses Copilot structured output to verify that the request is related to Azure or Microsoft cloud services and can produce a meaningful visual explanation.
 2. Shows the returned guidance without generating a page when the request is invalid.
 3. Creates an ID from the hexadecimal Unix timestamp and a sanitized Copilot-suggested slug.
-4. Makes a second Copilot request for a standalone interactive HTML page.
+4. Makes a second Copilot request for a standalone HTML page with clear text sections, a prominent visual stage, stateful controls, purposeful animation, and reduced-motion support.
 5. Secures and saves the page, then navigates the embedded WebView to it.
 
 The default artifact layout is relative to the application's working directory:
@@ -127,7 +127,7 @@ Authentication tokens remain managed by GitHub CLI or the bundled Copilot runtim
 
 ## Security model
 
-Model output is untrusted. Before saving a page, AzHST requires a complete HTML document, limits its size, rejects external `src` and `href` references and remote CSS URLs, removes `<base>` and model-provided CSP elements, and injects a restrictive Content Security Policy. The desktop host also blocks top-level navigation and new-window requests. Inline CSS, JavaScript, SVG, and data images remain available for interactive visualizations.
+Model output is untrusted. Before saving a page, AzHST requires a complete HTML document and an interactive experience baseline: inline JavaScript, semantic controls, purposeful motion, and a `prefers-reduced-motion` fallback. It also limits document size, rejects external `src` and `href` references and remote CSS URLs, removes `<base>` and model-provided CSP elements, and injects a restrictive Content Security Policy. The desktop host blocks top-level navigation and new-window requests. Inline CSS, JavaScript, SVG, and data images remain available for interactive visualizations.
 
 Generated technical guidance can still be incomplete or outdated. Validate architecture, pricing, quotas, regional availability, security controls, and service limits against current Microsoft documentation before production use.
 
