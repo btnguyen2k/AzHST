@@ -1,0 +1,10 @@
+<Solution>
+  <Folder Name="/src/">
+    <Project Path="src/AzHST.Application/AzHST.Application.csproj" />
+    <Project Path="src/AzHST.Desktop/AzHST.Desktop.csproj" />
+    <Project Path="src/AzHST.Infrastructure/AzHST.Infrastructure.csproj" />
+  </Folder>
+  <Folder Name="/tests/">
+    <Project Path="tests/AzHST.Application.Tests/AzHST.Application.Tests.csproj" />
+  </Folder>
+</Solution>

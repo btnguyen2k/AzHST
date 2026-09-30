@@ -1,0 +1,50 @@
+using AzHST.Application.Services;
+using AzHST.Desktop.Services;
+using AzHST.Desktop.ViewModels;
+using AzHST.Desktop.Views;
+using AzHST.Infrastructure;
+
+namespace AzHST.Desktop.Composition;
+
+internal static class ApplicationCompositionRoot
+{
+    public static MainWindow CreateMainWindow()
+    {
+        var testOptions = DebugTestOptions.FromEnvironment();
+        var paths = ApplicationPaths.CreateDefault();
+        var settingsRepository = new JsonSettingsRepository(paths);
+        var authenticationService = new GitHubCliAuthenticationService(
+            testOptions.SimulateMissingGitHubCli);
+        var browser = new ExternalBrowserLauncher();
+        var artifactStore = new FileGeneratedArtifactStore(paths);
+        var copilotClient = new CopilotVisualizationClient(paths);
+        var documentProcessor = new GeneratedHtmlDocumentProcessor();
+        var webViewAvailability = WebViewAvailability.Detect();
+        var generationUseCase = new GenerateVisualizationUseCase(
+            copilotClient,
+            documentProcessor,
+            artifactStore);
+
+        MainWindow? mainWindow = null;
+        var settingsDialogService = new SettingsDialogService(() => mainWindow);
+        var loginDialogService = new GitHubLoginDialogService(() => mainWindow);
+        var viewModel = new MainWindowViewModel(
+            generationUseCase,
+            authenticationService,
+            settingsRepository,
+            browser,
+            settingsDialogService,
+            loginDialogService,
+            webViewAvailability,
+            testOptions.SkipGitHubSignInAtStartup
+                && !testOptions.SimulateMissingGitHubCli);
+
+        mainWindow = new MainWindow
+        {
+            DataContext = viewModel,
+        };
+
+        mainWindow.Opened += async (_, _) => await viewModel.InitializeAsync();
+        return mainWindow;
+    }
+}

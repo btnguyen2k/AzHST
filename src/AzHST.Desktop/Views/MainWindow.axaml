@@ -1,0 +1,323 @@
+<Window
+    x:Class="AzHST.Desktop.Views.MainWindow"
+    xmlns="https://github.com/avaloniaui"
+    xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+    xmlns:sys="using:System"
+    xmlns:vm="using:AzHST.Desktop.ViewModels"
+    x:DataType="vm:MainWindowViewModel"
+    Title="AzHST - Azure, visualized"
+    Width="1440"
+    Height="900"
+    MinWidth="1040"
+    MinHeight="700"
+    Background="#0B1020">
+
+  <Window.Styles>
+    <Style Selector="Button">
+      <Setter Property="MinHeight" Value="40" />
+      <Setter Property="Padding" Value="16,8" />
+      <Setter Property="CornerRadius" Value="8" />
+      <Setter Property="FontWeight" Value="SemiBold" />
+    </Style>
+    <Style Selector="Button.primary">
+      <Setter Property="Background" Value="#2563EB" />
+      <Setter Property="Foreground" Value="White" />
+    </Style>
+    <Style Selector="Button.secondary">
+      <Setter Property="Background" Value="#17213B" />
+      <Setter Property="Foreground" Value="#DCE7FF" />
+      <Setter Property="BorderBrush" Value="#2B3A61" />
+      <Setter Property="BorderThickness" Value="1" />
+    </Style>
+    <Style Selector="Button.example">
+      <Setter Property="HorizontalContentAlignment" Value="Left" />
+      <Setter Property="HorizontalAlignment" Value="Stretch" />
+      <Setter Property="Background" Value="#121B31" />
+      <Setter Property="Foreground" Value="#CFDAF2" />
+      <Setter Property="BorderBrush" Value="#253454" />
+      <Setter Property="BorderThickness" Value="1" />
+      <Setter Property="FontWeight" Value="Normal" />
+    </Style>
+    <Style Selector="TextBox.query">
+      <Setter Property="Background" Value="#0E162A" />
+      <Setter Property="Foreground" Value="#F5F8FF" />
+      <Setter Property="BorderBrush" Value="#33466F" />
+      <Setter Property="BorderThickness" Value="1" />
+      <Setter Property="CornerRadius" Value="10" />
+      <Setter Property="Padding" Value="14" />
+    </Style>
+  </Window.Styles>
+
+  <Grid ColumnDefinitions="280,*">
+    <Border
+        Grid.Column="0"
+        Padding="24"
+        Background="#0E162A"
+        BorderBrush="#1D2A45"
+        BorderThickness="0,0,1,0">
+      <Grid RowDefinitions="Auto,*,Auto">
+        <StackPanel Spacing="10">
+          <Border
+              Width="48"
+              Height="48"
+              HorizontalAlignment="Left"
+              Background="#2563EB"
+              CornerRadius="12">
+            <TextBlock
+                HorizontalAlignment="Center"
+                VerticalAlignment="Center"
+                FontSize="20"
+                FontWeight="Bold"
+                Text="AZ" />
+          </Border>
+          <TextBlock
+              FontSize="24"
+              FontWeight="Bold"
+              Foreground="#F5F8FF"
+              Text="AzHST" />
+          <TextBlock
+              Foreground="#8FA4CB"
+              Text="Azure - How stuff works"
+              TextWrapping="Wrap" />
+        </StackPanel>
+
+        <StackPanel Grid.Row="1" Margin="0,34,0,0" Spacing="12">
+          <TextBlock
+              FontSize="12"
+              FontWeight="SemiBold"
+              Foreground="#7186AD"
+              Text="GITHUB COPILOT" />
+          <Border
+              Padding="12"
+              Background="#121D34"
+              CornerRadius="8">
+            <StackPanel Spacing="4">
+              <TextBlock
+                  FontWeight="SemiBold"
+                  Foreground="#DCE7FF"
+                  Text="{Binding AuthenticationMessage}"
+                  TextWrapping="Wrap" />
+              <TextBlock
+                  FontSize="12"
+                  Foreground="#7F94BB"
+                  Text="Authentication is provided by GitHub CLI."
+                  TextWrapping="Wrap" />
+            </StackPanel>
+          </Border>
+          <Button
+              Classes="primary"
+              Command="{Binding GitHubSignInCommand}"
+              Content="{Binding GitHubSignInButtonText}" />
+
+          <Border Height="1" Margin="0,14" Background="#253454" />
+
+          <TextBlock
+              FontSize="12"
+              FontWeight="SemiBold"
+              Foreground="#7186AD"
+              Text="CONFIGURATION" />
+          <TextBlock
+              Foreground="#AFC0DF"
+              Text="{Binding SettingsSummary}"
+              TextWrapping="Wrap" />
+          <Button
+              Classes="secondary"
+              Command="{Binding OpenSettingsCommand}"
+              Content="Settings" />
+        </StackPanel>
+
+        <StackPanel Grid.Row="2" Spacing="8">
+          <TextBlock
+              FontSize="12"
+              Foreground="#7186AD"
+              Text="Generated pages are stored locally and restricted by a Content Security Policy."
+              TextWrapping="Wrap" />
+          <TextBlock
+              FontSize="11"
+              Foreground="#53698F"
+              Text="Version 0.1" />
+        </StackPanel>
+      </Grid>
+    </Border>
+
+    <Grid Grid.Column="1" Margin="30,24,30,26" RowDefinitions="Auto,*,Auto">
+      <Grid ColumnDefinitions="*,Auto">
+        <StackPanel Spacing="5">
+          <TextBlock
+              FontSize="13"
+              FontWeight="SemiBold"
+              Foreground="#60A5FA"
+              Text="AZURE KNOWLEDGE VISUALIZER" />
+          <TextBlock
+              FontSize="28"
+              FontWeight="Bold"
+              Foreground="#F8FAFF"
+              Text="Understand cloud architecture at a glance" />
+        </StackPanel>
+        <Button
+            Grid.Column="1"
+            Classes="secondary"
+            Command="{Binding OpenExternalCommand}"
+            Content="Open in browser"
+            IsVisible="{Binding HasPreview}" />
+      </Grid>
+
+      <Grid Grid.Row="1" Margin="0,24,0,22">
+        <Border
+            Padding="32"
+            Background="#10182C"
+            BorderBrush="#253454"
+            BorderThickness="1"
+            CornerRadius="16"
+            IsVisible="{Binding ShowWelcome}">
+          <ScrollViewer>
+            <StackPanel
+                MaxWidth="860"
+                HorizontalAlignment="Center"
+                VerticalAlignment="Center"
+                Spacing="18">
+              <TextBlock
+                  HorizontalAlignment="Center"
+                  FontSize="30"
+                  FontWeight="Bold"
+                  Foreground="#F5F8FF"
+                  Text="Ask. Generate. Explore." />
+              <TextBlock
+                  HorizontalAlignment="Center"
+                  Foreground="#9DB0D1"
+                  Text="Ask about Azure services, compare options, or describe an architecture requirement. AzHST turns the answer into an interactive visual page."
+                  TextAlignment="Center"
+                  TextWrapping="Wrap" />
+              <TextBlock
+                  Margin="0,14,0,0"
+                  FontSize="12"
+                  FontWeight="SemiBold"
+                  Foreground="#7186AD"
+                  Text="TRY AN EXAMPLE" />
+              <UniformGrid Columns="2" Rows="2">
+                <Button
+                    Margin="5"
+                    Classes="example"
+                    Command="{Binding UseExampleCommand}"
+                    CommandParameter="Explain how Azure Functions works, including triggers, bindings, scaling, and common use cases."
+                    Content="How does Azure Functions work?" />
+                <Button
+                    Margin="5"
+                    Classes="example"
+                    Command="{Binding UseExampleCommand}"
+                    CommandParameter="Compare Azure App Service and Azure Container Apps for a production web API."
+                    Content="App Service vs Container Apps" />
+                <Button
+                    Margin="5"
+                    Classes="example"
+                    Command="{Binding UseExampleCommand}"
+                    CommandParameter="Propose a secure architecture for connecting Azure API Management to an on-premises service."
+                    Content="Connect Azure to on-premises" />
+                <Button
+                    Margin="5"
+                    Classes="example"
+                    Command="{Binding UseExampleCommand}"
+                    CommandParameter="Design an enterprise Azure landing zone for multiple teams with strong governance, networking, identity, and observability."
+                    Content="Design a landing zone" />
+              </UniformGrid>
+            </StackPanel>
+          </ScrollViewer>
+        </Border>
+
+        <Border
+            Background="White"
+            BorderBrush="#33466F"
+            BorderThickness="1"
+            CornerRadius="12"
+            ClipToBounds="True"
+            IsVisible="{Binding HasEmbeddedPreview}">
+          <ContentControl Content="{Binding EmbeddedPreviewUri}">
+            <ContentControl.DataTemplates>
+              <DataTemplate DataType="sys:Uri" x:DataType="sys:Uri">
+                <NativeWebView
+                    NavigationStarted="WebView_NavigationStarted"
+                    NewWindowRequested="WebView_NewWindowRequested"
+                    Source="{Binding .}" />
+              </DataTemplate>
+            </ContentControl.DataTemplates>
+          </ContentControl>
+        </Border>
+
+        <Border
+            Padding="36"
+            Background="#10182C"
+            BorderBrush="#33466F"
+            BorderThickness="1"
+            CornerRadius="12"
+            IsVisible="{Binding ShowPreviewFallback}">
+          <StackPanel
+              MaxWidth="620"
+              HorizontalAlignment="Center"
+              VerticalAlignment="Center"
+              Spacing="16">
+            <TextBlock
+                HorizontalAlignment="Center"
+                FontSize="24"
+                FontWeight="Bold"
+                Foreground="#F5F8FF"
+                Text="Embedded preview unavailable" />
+            <TextBlock
+                Foreground="#9DB0D1"
+                Text="{Binding WebViewAvailabilityMessage}"
+                TextAlignment="Center"
+                TextWrapping="Wrap" />
+            <Button
+                HorizontalAlignment="Center"
+                Classes="primary"
+                Command="{Binding OpenExternalCommand}"
+                Content="Open in browser" />
+          </StackPanel>
+        </Border>
+      </Grid>
+
+      <Border
+          Grid.Row="2"
+          Padding="18"
+          Background="#10182C"
+          BorderBrush="#2A3A5F"
+          BorderThickness="1"
+          CornerRadius="14">
+        <Grid RowDefinitions="Auto,Auto,Auto">
+          <TextBox
+              Classes="query"
+              AcceptsReturn="True"
+              MaxHeight="150"
+              MinHeight="84"
+              PlaceholderText="Ask about an Azure service, comparison, integration, or target architecture..."
+              Text="{Binding Query, Mode=TwoWay}"
+              TextWrapping="Wrap" />
+          <Grid Grid.Row="1" Margin="0,12,0,0" ColumnDefinitions="*,Auto,Auto">
+            <TextBlock
+                VerticalAlignment="Center"
+                Foreground="#8FA4CB"
+                Text="{Binding StatusMessage}"
+                TextTrimming="CharacterEllipsis" />
+            <Button
+                Grid.Column="1"
+                Margin="10,0"
+                Classes="secondary"
+                Command="{Binding GenerateCancelCommand}"
+                Content="Cancel"
+                IsVisible="{Binding IsGenerating}" />
+            <Button
+                Grid.Column="2"
+                Classes="primary"
+                Command="{Binding GenerateCommand}"
+                Content="Generate visualization" />
+          </Grid>
+          <ProgressBar
+              Grid.Row="2"
+              Height="3"
+              Margin="0,12,0,0"
+              IsIndeterminate="True"
+              IsVisible="{Binding IsBusy}" />
+        </Grid>
+      </Border>
+    </Grid>
+  </Grid>
+</Window>

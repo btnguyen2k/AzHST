@@ -1,0 +1,75 @@
+<Window
+    x:Class="AzHST.Desktop.Views.SettingsWindow"
+    xmlns="https://github.com/avaloniaui"
+    xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+    xmlns:vm="using:AzHST.Desktop.ViewModels"
+    x:DataType="vm:SettingsWindowViewModel"
+    Title="AzHST settings"
+    Width="560"
+    Height="430"
+    CanResize="False"
+    Background="#0E162A"
+    WindowStartupLocation="CenterOwner">
+
+  <Grid Margin="28" RowDefinitions="Auto,*,Auto">
+    <StackPanel Spacing="6">
+      <TextBlock
+          FontSize="24"
+          FontWeight="Bold"
+          Foreground="#F5F8FF"
+          Text="Configuration" />
+      <TextBlock
+          Foreground="#8FA4CB"
+          Text="Choose the Copilot model and how generated pages are opened." />
+    </StackPanel>
+
+    <StackPanel Grid.Row="1" Margin="0,26,0,0" Spacing="10">
+      <TextBlock
+          FontWeight="SemiBold"
+          Foreground="#DCE7FF"
+          Text="Copilot model" />
+      <TextBox
+          PlaceholderText="auto"
+          Text="{Binding Model, Mode=TwoWay}" />
+      <TextBlock
+          Margin="0,0,0,10"
+          FontSize="12"
+          Foreground="#7186AD"
+          Text="Use 'auto' to let GitHub Copilot choose an available model." />
+
+      <TextBlock
+          FontWeight="SemiBold"
+          Foreground="#DCE7FF"
+          Text="Generated HTML directory" />
+      <TextBox
+          PlaceholderText="Local application data directory"
+          Text="{Binding OutputDirectory, Mode=TwoWay}" />
+      <TextBlock
+          Margin="0,0,0,12"
+          FontSize="12"
+          Foreground="#7186AD"
+          Text="Leave empty to use AzHST's local application data folder." />
+
+      <CheckBox
+          Content="Also open each result in the default browser"
+          IsChecked="{Binding OpenResultsInExternalBrowser, Mode=TwoWay}" />
+    </StackPanel>
+
+    <StackPanel
+        Grid.Row="2"
+        HorizontalAlignment="Right"
+        Orientation="Horizontal"
+        Spacing="10">
+      <Button
+          MinWidth="90"
+          Click="Cancel_Click"
+          Content="Cancel" />
+      <Button
+          MinWidth="110"
+          Background="#2563EB"
+          Click="Save_Click"
+          Content="Save"
+          Foreground="White" />
+    </StackPanel>
+  </Grid>
+</Window>
