@@ -7,6 +7,8 @@ namespace AzHST.Infrastructure;
 
 public sealed class CopilotVisualizationClient : ICopilotVisualizationClient
 {
+    private const int MaximumPromptIcons = 24;
+
     private static readonly TimeSpan AssessmentTimeout = TimeSpan.FromSeconds(45);
     private static readonly TimeSpan GenerationTimeout = TimeSpan.FromMinutes(3);
 
@@ -73,10 +75,14 @@ public sealed class CopilotVisualizationClient : ICopilotVisualizationClient
         """;
 
     private readonly ApplicationPaths _paths;
+    private readonly IAzureIconCatalog _azureIcons;
 
-    public CopilotVisualizationClient(ApplicationPaths paths)
+    public CopilotVisualizationClient(
+        ApplicationPaths paths,
+        IAzureIconCatalog azureIcons)
     {
         _paths = paths;
+        _azureIcons = azureIcons;
     }
 
     public async Task<VisualizationQueryAssessment> AssessQueryAsync(
@@ -153,7 +159,7 @@ public sealed class CopilotVisualizationClient : ICopilotVisualizationClient
         await using var session = await CreateSessionAsync(
             client,
             model,
-            VisualizationSystemMessage);
+            BuildVisualizationSystemMessage(query));
 
         progress?.Report(new GenerationProgress(
             GenerationStage.Generating,
@@ -195,6 +201,39 @@ public sealed class CopilotVisualizationClient : ICopilotVisualizationClient
         }
 
         return content;
+    }
+
+    private string BuildVisualizationSystemMessage(string query)
+    {
+        var icons = _azureIcons.FindRelevant(query, MaximumPromptIcons);
+        if (icons.Count == 0)
+        {
+            return VisualizationSystemMessage;
+        }
+
+        var catalog = string.Join(
+            Environment.NewLine,
+            icons.Select(icon =>
+                $"- {icon.Key} | {icon.DisplayName} ({icon.Category})"));
+        var example = icons[0];
+
+        return $"""
+            {VisualizationSystemMessage}
+
+            Official Azure icon requirements:
+            - Use official icons from the approved catalog when they clarify an actual Microsoft service in the diagram.
+            - When the catalog contains the primary Azure service from the question, use at least that service's official icon in the main visual stage.
+            - Insert an icon only as an HTML image placeholder in this exact form:
+              <img data-azure-icon="{example.Key}" alt="{example.DisplayName}">
+            - Copy an exact key from the approved catalog. Do not add a src attribute; AzHST supplies the image data after generation.
+            - Keep the product name close to its icon. Do not use an Azure icon for a generic component or a non-Microsoft product.
+            - Do not crop, flip, rotate, recolor, distort, or animate the icon itself. Preserve its aspect ratio and animate its container or connectors instead.
+            - If the needed service is not listed, use a clearly labeled neutral HTML/CSS shape rather than inventing an icon key.
+            - Use no more than 12 official Azure icons in the page.
+
+            Approved Azure icon catalog:
+            {catalog}
+            """;
     }
 
     private CopilotClient CreateClient()

@@ -17,8 +17,9 @@ internal static class ApplicationCompositionRoot
             testOptions.SimulateMissingGitHubCli);
         var browser = new ExternalBrowserLauncher();
         var artifactStore = new FileGeneratedArtifactStore(paths);
-        var copilotClient = new CopilotVisualizationClient(paths);
-        var documentProcessor = new GeneratedHtmlDocumentProcessor();
+        var azureIcons = FileAzureIconCatalog.CreateDefault();
+        var copilotClient = new CopilotVisualizationClient(paths, azureIcons);
+        var documentProcessor = new GeneratedHtmlDocumentProcessor(azureIcons);
         var artifactIdGenerator = new VisualizationArtifactIdGenerator();
         var webViewAvailability = WebViewAvailability.Detect();
         var generationUseCase = new GenerateVisualizationUseCase(

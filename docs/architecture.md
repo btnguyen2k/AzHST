@@ -42,6 +42,7 @@ The dependency-free application layer contains:
 - `GenerateVisualizationUseCase`, which coordinates one request
 - `VisualizationArtifactIdGenerator`, which creates timestamp-and-slug IDs
 - `GeneratedHtmlDocumentProcessor`, which extracts and secures model output
+- `IAzureIconCatalog`, which exposes approved icon metadata and data URIs
 
 This layer can be tested without Avalonia, GitHub Copilot, GitHub CLI, or a filesystem.
 
@@ -50,6 +51,7 @@ This layer can be tested without Avalonia, GitHub Copilot, GitHub CLI, or a file
 Infrastructure implements the application ports:
 
 - `CopilotVisualizationClient` owns the Copilot client and session lifecycle
+- `FileAzureIconCatalog` validates bundled SVGs, ranks query-relevant icons, and preserves their original bytes as data URIs
 - `GitHubCliAuthenticationService` performs a non-interactive `gh` account check
 - `JsonSettingsRepository` performs atomic JSON settings writes
 - `FileGeneratedArtifactStore` atomically writes UTF-8 `index.html` files inside per-artifact directories
@@ -77,6 +79,7 @@ sequenceDiagram
     participant VM as MainWindowViewModel
     participant UC as GenerateVisualizationUseCase
     participant Copilot as CopilotVisualizationClient
+    participant Icons as Azure icon catalog
     participant Policy as GeneratedHtmlDocumentProcessor
     participant Store as FileGeneratedArtifactStore
     participant View as NativeWebView / Browser
@@ -90,8 +93,12 @@ sequenceDiagram
     else Valid request
         UC->>UC: Create hex timestamp + slug ID
         UC->>Copilot: GenerateHtml(question, model, ID)
-        Copilot-->>UC: HTML document
+        Copilot->>Icons: Find relevant approved icon keys
+        Icons-->>Copilot: Small labeled catalog
+        Copilot-->>UC: HTML document with optional icon placeholders
         UC->>Policy: Extract and secure HTML
+        Policy->>Icons: Resolve approved placeholders
+        Icons-->>Policy: Original SVG data URIs
         Policy-->>UC: Constrained document
         UC->>Store: Save ID/index.html
         Store-->>UC: ID, directory, file path, and URI
@@ -113,6 +120,9 @@ Generated HTML is treated as untrusted input. The document processor:
 - enforces a 4 MB document limit
 - requires non-empty inline JavaScript and at least one semantic interactive control
 - requires CSS or JavaScript motion plus a `prefers-reduced-motion: reduce` fallback
+- accepts Azure icons only through known `<img data-azure-icon="...">` catalog keys
+- requires descriptive icon alt text and rejects model-supplied icon sources
+- replaces each approved placeholder with the original SVG bytes as a base64 `data:` image
 - rejects external or active `src` and `href` schemes
 - rejects remote CSS `url(...)` resources
 - removes `<base>` elements
@@ -121,6 +131,24 @@ Generated HTML is treated as untrusted input. The document processor:
 - blocks WebView navigation away from the generated local file and handles new-window requests
 
 Inline script is allowed because interaction is a core product requirement. The generation contract preserves concise text sections while requiring a prominent visual stage, question-appropriate stateful controls, purposeful motion, visible state, keyboard operation, and a reduced-motion equivalent. The injected policy still blocks script-initiated network access. A future release can add a stricter HTML parser and an explicit "interactive content" setting.
+
+### Azure icon assets
+
+The desktop build packages the official SVG catalog under
+`resources\azure-icons`. `FileAzureIconCatalog` validates every source file
+before use: icons must be bounded-size SVG documents without scripts,
+`foreignObject`, event handlers, external references, or remote CSS URLs.
+Copilot receives only a small query-relevant list of exact keys, never a
+filesystem path.
+
+The generated document uses an `<img data-azure-icon="key" alt="...">`
+placeholder. The application resolves it to a base64 `data:image/svg+xml`
+source, preserving the original file bytes and keeping `index.html`
+self-contained. The prompt requires a nearby product name and prohibits
+cropping, flipping, rotation, recoloring, distortion, or use as AzHST
+branding. Microsoft permits these icons in architecture diagrams, training
+materials, and documentation under the current
+[Azure Architecture Icons terms](https://learn.microsoft.com/azure/architecture/icons/).
 
 ### Agent capabilities
 

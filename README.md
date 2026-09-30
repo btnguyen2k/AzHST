@@ -13,7 +13,7 @@ This repository contains the first functional vertical slice. Authentication, co
 - GitHub Copilot SDK integration with no agent tools or host access enabled
 - Copilot-powered query validation for Azure relevance and visual suitability
 - Visual prompts for service explanations, comparisons, integrations, and architecture proposals
-- Self-contained HTML generation with inline CSS, JavaScript, and SVG
+- Self-contained HTML generation with inline CSS, JavaScript, SVG, and official Azure service icons
 - Timestamp-and-slug visualization IDs with one directory per generated page
 - Content Security Policy injection and external-resource rejection
 - Native WebView preview on Windows, macOS, and Linux
@@ -89,6 +89,8 @@ tests\
   AzHST.Infrastructure.Tests\ Filesystem artifact persistence tests
 docs\
   architecture.md          Design, data flow, trust boundaries, and roadmap
+resources\
+  azure-icons\             Official Azure architecture SVG icon catalog
 ```
 
 Dependencies point inward: Desktop and Infrastructure depend on Application; Application has no UI, SDK, or operating-system dependencies.
@@ -100,8 +102,10 @@ For each submitted question, AzHST:
 1. Uses Copilot structured output to verify that the request is related to Azure or Microsoft cloud services and can produce a meaningful visual explanation.
 2. Shows the returned guidance without generating a page when the request is invalid.
 3. Creates an ID from the hexadecimal Unix timestamp and a sanitized Copilot-suggested slug.
-4. Makes a second Copilot request for a standalone HTML page with clear text sections, a prominent visual stage, stateful controls, purposeful animation, and reduced-motion support.
-5. Secures and saves the page, then navigates the embedded WebView to it.
+4. Selects a small query-relevant catalog of approved Azure icon keys.
+5. Makes a second Copilot request for a standalone HTML page with clear text sections, a prominent visual stage, stateful controls, purposeful animation, reduced-motion support, and optional official icon placeholders.
+6. Replaces approved placeholders with the original SVG bytes encoded as `data:` images.
+7. Secures and saves the page, then navigates the embedded WebView to it.
 
 The default artifact layout is relative to the application's working directory:
 
@@ -127,7 +131,21 @@ Authentication tokens remain managed by GitHub CLI or the bundled Copilot runtim
 
 ## Security model
 
-Model output is untrusted. Before saving a page, AzHST requires a complete HTML document and an interactive experience baseline: inline JavaScript, semantic controls, purposeful motion, and a `prefers-reduced-motion` fallback. It also limits document size, rejects external `src` and `href` references and remote CSS URLs, removes `<base>` and model-provided CSP elements, and injects a restrictive Content Security Policy. The desktop host blocks top-level navigation and new-window requests. Inline CSS, JavaScript, SVG, and data images remain available for interactive visualizations.
+Model output is untrusted. Before saving a page, AzHST requires a complete HTML document and an interactive experience baseline: inline JavaScript, semantic controls, purposeful motion, and a `prefers-reduced-motion` fallback. It also limits document size, rejects external `src` and `href` references and remote CSS URLs, removes `<base>` and model-provided CSP elements, and injects a restrictive Content Security Policy. Azure icon placeholders accept only catalog keys, descriptive alt text, and no model-supplied `src`; AzHST substitutes a validated base64 SVG data URI. The desktop host blocks top-level navigation and new-window requests.
+
+## Azure icon usage
+
+The bundled SVGs come from the
+[Microsoft Azure Architecture Center](https://learn.microsoft.com/azure/architecture/icons/).
+Microsoft permits these icons in architectural diagrams, training materials,
+and documentation. AzHST uses them only for those purposes inside generated
+technical explanations.
+
+Generated pages preserve the original SVG bytes, show the Microsoft product
+name near the icon, and instruct Copilot not to crop, flip, rotate, recolor,
+distort, or use an icon to represent AzHST or a non-Microsoft product. See
+[`resources\azure-icons\README.md`](resources/azure-icons/README.md) for the
+source and usage summary.
 
 Generated technical guidance can still be incomplete or outdated. Validate architecture, pricing, quotas, regional availability, security controls, and service limits against current Microsoft documentation before production use.
 

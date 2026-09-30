@@ -1,4 +1,6 @@
+using AzHST.Application.Abstractions;
 using AzHST.Application.Exceptions;
+using AzHST.Application.Models;
 using AzHST.Application.Services;
 
 namespace AzHST.Application.Tests;
@@ -115,6 +117,68 @@ public sealed class GeneratedHtmlDocumentProcessorTests
     }
 
     [Fact]
+    public void Process_EmbedsApprovedAzureIconAsDataImage()
+    {
+        const string key = "networking/10076-application-gateways";
+        const string dataUri = "data:image/svg+xml;base64,PHN2Zy8+";
+        var processor = new GeneratedHtmlDocumentProcessor(
+            new StubAzureIconCatalog(key, dataUri));
+        var response = CreateDocument(
+            bodyMarkup:
+                $"""<img class="service-icon" data-azure-icon="{key}" alt="Azure Application Gateway">""");
+
+        var result = processor.Process(response);
+
+        Assert.Contains($"data-azure-icon-resolved=\"{key}\"", result);
+        Assert.Contains($"src=\"{dataUri}\"", result);
+        Assert.DoesNotContain("data-azure-icon=", result);
+    }
+
+    [Fact]
+    public void Process_RejectsUnavailableAzureIcon()
+    {
+        var response = CreateDocument(
+            bodyMarkup:
+                """<img data-azure-icon="networking/unknown" alt="Unknown service">""");
+
+        var exception = Assert.Throws<VisualizationGenerationException>(
+            () => _processor.Process(response));
+
+        Assert.Contains("unavailable Azure icon", exception.Message);
+    }
+
+    [Fact]
+    public void Process_RejectsAzureIconWithoutAltText()
+    {
+        const string key = "networking/10076-application-gateways";
+        var processor = new GeneratedHtmlDocumentProcessor(
+            new StubAzureIconCatalog(key, "data:image/svg+xml;base64,PHN2Zy8+"));
+        var response = CreateDocument(
+            bodyMarkup: $"""<img data-azure-icon="{key}">""");
+
+        var exception = Assert.Throws<VisualizationGenerationException>(
+            () => processor.Process(response));
+
+        Assert.Contains("descriptive alt", exception.Message);
+    }
+
+    [Fact]
+    public void Process_RejectsAzureIconPlaceholderWithSource()
+    {
+        const string key = "networking/10076-application-gateways";
+        var processor = new GeneratedHtmlDocumentProcessor(
+            new StubAzureIconCatalog(key, "data:image/svg+xml;base64,PHN2Zy8+"));
+        var response = CreateDocument(
+            bodyMarkup:
+                $"""<img data-azure-icon="{key}" src="icon.svg" alt="Azure Application Gateway">""");
+
+        var exception = Assert.Throws<VisualizationGenerationException>(
+            () => processor.Process(response));
+
+        Assert.Contains("must not provide", exception.Message);
+    }
+
+    [Fact]
     public void Process_RejectsOversizedDocument()
     {
         var payload = new string('x', GeneratedHtmlDocumentProcessor.MaximumDocumentLength);
@@ -176,5 +240,29 @@ public sealed class GeneratedHtmlDocumentProcessorTests
             </body>
             </html>
             """;
+    }
+
+    private sealed class StubAzureIconCatalog(
+        string? availableKey = null,
+        string? dataUri = null) : IAzureIconCatalog
+    {
+        public IReadOnlyList<AzureIconDescriptor> FindRelevant(
+            string query,
+            int maximumResults)
+        {
+            return [];
+        }
+
+        public bool TryGetDataUri(string key, out string resolvedDataUri)
+        {
+            if (string.Equals(key, availableKey, StringComparison.OrdinalIgnoreCase))
+            {
+                resolvedDataUri = dataUri ?? string.Empty;
+                return true;
+            }
+
+            resolvedDataUri = string.Empty;
+            return false;
+        }
     }
 }
