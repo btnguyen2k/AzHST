@@ -15,6 +15,7 @@ This repository contains the first functional vertical slice. Authentication, co
 - Visual prompts for service explanations, comparisons, integrations, and architecture proposals
 - Self-contained HTML generation with inline CSS, JavaScript, SVG, and official Azure service icons
 - Editable 16:9 PowerPoint generation with native text, shapes, connectors, and Azure icons
+- Validated JSON theme catalog with separate HTML and PowerPoint selections
 - Timestamp-and-slug visualization IDs with one directory per generated page
 - Content Security Policy injection and external-resource rejection
 - Native WebView preview on Windows, macOS, and Linux
@@ -92,6 +93,7 @@ docs\
   architecture.md          Design, data flow, trust boundaries, and roadmap
 resources\
   azure-icons\             Official Azure architecture SVG icon catalog
+  themes\                  Validated HTML and PowerPoint theme definitions
 ```
 
 Dependencies point inward: Desktop and Infrastructure depend on Application; Application has no UI, SDK, or operating-system dependencies.
@@ -104,10 +106,10 @@ For each submitted question, AzHST:
 2. Shows the returned guidance without generating a page when the request is invalid.
 3. Creates an ID from the hexadecimal Unix timestamp and a sanitized Copilot-suggested slug.
 4. Selects a small query-relevant catalog of approved Azure icon keys.
-5. Makes a second Copilot request for a standalone HTML page with clear text sections, a prominent visual stage, stateful controls, purposeful animation, reduced-motion support, and optional official icon placeholders.
-6. Replaces approved placeholders with the original SVG bytes encoded as `data:` images.
+5. Resolves the selected HTML theme and makes a second Copilot request for a standalone page with clear text sections, a prominent visual stage, stateful controls, purposeful animation, reduced-motion support, and optional official icon placeholders.
+6. Replaces approved placeholders with the original SVG bytes encoded as `data:` images and injects the authoritative theme CSS.
 7. Secures and saves the page, then navigates the embedded WebView to it.
-8. On request, asks Copilot for a bounded structured slide plan and builds an editable `.pptx` locally with the Open XML SDK.
+8. On request, asks Copilot for a bounded structured slide plan, resolves the selected presentation theme, and builds an editable `.pptx` locally with the Open XML SDK.
 
 The default artifact layout is relative to the application's working directory:
 
@@ -122,6 +124,9 @@ The generated root can be changed in Settings.
 
 After a visualization is ready, select **Build PowerPoint**. AzHST creates a
 title slide plus 3-10 content slides and stores the deck beside `index.html`.
+PowerPoint decks use the selected presentation theme. The default is
+**Professional Light**, optimized for projection, printing, and document
+sharing.
 The generated file location is displayed in the application with actions to
 copy its path or open its containing folder. Select **Open PowerPoint** to
 launch the file in the operating system's default presentation application.
@@ -139,6 +144,18 @@ AzHST\
 ```
 
 Authentication tokens remain managed by GitHub CLI or the bundled Copilot runtime and are never written to `settings.json`.
+
+## Output themes
+
+Settings provides separate selectors for HTML visualizations and PowerPoint
+presentations. The defaults are **Azure Night** (`azure-night`) for HTML and
+**Professional Light** (`professional-light`) for PowerPoint.
+
+Theme definitions are loaded from `resources\themes`, strictly validated, and
+applied automatically during generation. They contain `schemaVersion` for the
+configuration contract but deliberately have no theme-version property. See
+[`.dev.md`](.dev.md) for the complete schema, validation rules, renderer
+mappings, and instructions for adding themes.
 
 ## Security model
 
