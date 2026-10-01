@@ -35,6 +35,8 @@ public sealed class PresentationNodePlan
     public string Detail { get; set; } = string.Empty;
 
     public string IconKey { get; set; } = string.Empty;
+
+    public string Tone { get; set; } = string.Empty;
 }
 
 public sealed class PresentationConnectionPlan

@@ -206,6 +206,61 @@ public sealed class OpenXmlPresentationBuilderTests : IDisposable
             });
     }
 
+    [Fact]
+    public async Task BuildAsync_RendersVisualCardsAndNumberedCardsAsNativeShapes()
+    {
+        var iconDirectory = Path.Combine(_testDirectory, "icons");
+        CreateIcon(iconDirectory);
+        var builder = new OpenXmlPresentationBuilder(
+            new FileAzureIconCatalog(iconDirectory));
+
+        var artifact = await builder.BuildAsync(
+            CreatePlan(),
+            CreateVisualization(),
+            CreateTheme());
+
+        using var document = PresentationDocument.Open(artifact.FilePath, false);
+        var presentationPart = Assert.IsType<PresentationPart>(
+            document.PresentationPart);
+        var cardsSlide = Assert.Single(
+            presentationPart.SlideParts,
+            slide => GetSlideText(slide)
+                .Any(text => text.Text == "Executive overview"));
+        var summarySlide = Assert.Single(
+            presentationPart.SlideParts,
+            slide => GetSlideText(slide)
+                .Any(text => text.Text == "Validate before production"));
+
+        var cardsShapes = cardsSlide.Slide!.Descendants<P.Shape>().ToArray();
+        Assert.Single(
+            cardsShapes,
+            shape => GetShapeText(shape) == "Request routing");
+        Assert.Single(
+            cardsShapes,
+            shape => GetShapeText(shape) == "Web protection");
+        Assert.Contains("009FDA", cardsSlide.Slide.OuterXml);
+        Assert.Contains("14B8A6", cardsSlide.Slide.OuterXml);
+
+        var summaryShapes = summarySlide.Slide!.Descendants<P.Shape>().ToArray();
+        const string firstPoint = "Check regional and SKU availability.";
+        const string secondPoint =
+            "Validate quotas, pricing, and WAF policy behavior.";
+        Assert.Single(
+            summaryShapes,
+            shape => GetShapeText(shape) == firstPoint);
+        Assert.Single(
+            summaryShapes,
+            shape => GetShapeText(shape) == secondPoint);
+        Assert.DoesNotContain(
+            summaryShapes,
+            shape =>
+            {
+                var text = GetShapeText(shape);
+                return text.Contains(firstPoint, StringComparison.Ordinal)
+                && text.Contains(secondPoint, StringComparison.Ordinal);
+            });
+    }
+
     public void Dispose()
     {
         if (Directory.Exists(_testDirectory))
@@ -241,13 +296,25 @@ public sealed class OpenXmlPresentationBuilderTests : IDisposable
             [
                 new PresentationSlidePlan
                 {
-                    Kind = "content",
+                    Kind = "cards",
                     Title = "Executive overview",
                     Summary = "Application Gateway is a regional layer 7 load balancer.",
-                    Bullets =
+                    Nodes =
                     [
-                        "Terminates TLS and evaluates routing rules.",
-                        "Can apply Web Application Firewall policies.",
+                        new PresentationNodePlan
+                        {
+                            Id = "routing",
+                            Label = "Request routing",
+                            Detail = "Evaluates listeners and routing rules.",
+                            Tone = "accent",
+                        },
+                        new PresentationNodePlan
+                        {
+                            Id = "waf",
+                            Label = "Web protection",
+                            Detail = "Applies Web Application Firewall policies.",
+                            Tone = "success",
+                        },
                     ],
                     Sources = ["Microsoft Learn"],
                 },
@@ -263,6 +330,7 @@ public sealed class OpenXmlPresentationBuilderTests : IDisposable
                             Id = "client",
                             Label = "Client",
                             Detail = "Sends an HTTPS request.",
+                            Tone = "neutral",
                         },
                         new PresentationNodePlan
                         {
@@ -270,12 +338,14 @@ public sealed class OpenXmlPresentationBuilderTests : IDisposable
                             Label = "Azure Application Gateway",
                             Detail = "Evaluates WAF and routing rules.",
                             IconKey = "networking/10076-application-gateways",
+                            Tone = "primary",
                         },
                         new PresentationNodePlan
                         {
                             Id = "backend",
                             Label = "Backend pool",
                             Detail = "Receives healthy routed traffic.",
+                            Tone = "success",
                         },
                     ],
                     Connections =
@@ -346,9 +416,9 @@ public sealed class OpenXmlPresentationBuilderTests : IDisposable
                 SlideTitleSizePoints = 20,
                 SummarySizePoints = 15,
                 BodySizePoints = 17,
-                NodeLabelSizePoints = 11,
-                NodeDetailSizePoints = 8,
-                ConnectionLabelSizePoints = 7,
+                NodeLabelSizePoints = 12,
+                NodeDetailSizePoints = 10,
+                ConnectionLabelSizePoints = 8,
                 FooterSizePoints = 7,
             },
             Appearance = new PresentationThemeAppearance
@@ -382,5 +452,13 @@ public sealed class OpenXmlPresentationBuilderTests : IDisposable
         return (slidePart.Slide
                 ?? throw new InvalidOperationException("Test slide is missing."))
             .Descendants<DocumentFormat.OpenXml.Drawing.Text>();
+    }
+
+    private static string GetShapeText(P.Shape shape)
+    {
+        return string.Join(
+            " ",
+            shape.Descendants<DocumentFormat.OpenXml.Drawing.Text>()
+                .Select(text => text.Text));
     }
 }

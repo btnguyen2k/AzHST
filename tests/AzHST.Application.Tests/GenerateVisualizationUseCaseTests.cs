@@ -317,7 +317,10 @@ public sealed class GenerateVisualizationUseCaseTests
                 visualizationId,
                 $"/tmp/{visualizationId}",
                 $"/tmp/{visualizationId}/index.html",
-                new Uri($"file:///tmp/{visualizationId}/index.html"));
+                new Uri($"file:///tmp/{visualizationId}/index.html"))
+            {
+                Html = html,
+            };
             return Task.FromResult(Artifact);
         }
     }

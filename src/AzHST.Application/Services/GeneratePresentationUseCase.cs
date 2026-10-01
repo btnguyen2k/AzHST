@@ -7,24 +7,32 @@ namespace AzHST.Application.Services;
 
 public sealed partial class GeneratePresentationUseCase
 {
-    public const int MinimumSlideCount = 3;
-    public const int MaximumSlideCount = 10;
-    public const int MaximumBulletsPerSlide = 6;
+    public const int MinimumSlideCount = 4;
+    public const int MaximumSlideCount = 9;
+    public const int MaximumBulletsPerSlide = 4;
     public const int MaximumNodesPerSlide = 10;
     public const int MaximumConnectionsPerSlide = 16;
 
     private const int MaximumTitleLength = 120;
     private const int MaximumSubtitleLength = 240;
     private const int MaximumSummaryLength = 420;
-    private const int MaximumBulletLength = 240;
+    private const int MaximumBulletLength = 180;
     private const int MaximumNodeLabelLength = 80;
-    private const int MaximumNodeDetailLength = 160;
+    private const int MaximumNodeDetailLength = 140;
     private const int MaximumConnectionLabelLength = 60;
     private const int MaximumSourcesPerSlide = 4;
     private const int MaximumSourceLength = 100;
 
     private static readonly HashSet<string> SupportedKinds = new(
-        ["content", "diagram", "comparison", "summary"],
+        ["content", "diagram", "comparison", "cards", "summary"],
+        StringComparer.Ordinal);
+
+    private static readonly HashSet<string> VisualKinds = new(
+        ["diagram", "comparison", "cards"],
+        StringComparer.Ordinal);
+
+    private static readonly HashSet<string> SupportedNodeTones = new(
+        ["primary", "accent", "success", "warning", "danger", "neutral"],
         StringComparer.Ordinal);
 
     private readonly ICopilotPresentationPlanner _planner;
@@ -74,13 +82,19 @@ public sealed partial class GeneratePresentationUseCase
                 "The visualization artifact is missing its ID or output directory.");
         }
 
+        if (string.IsNullOrWhiteSpace(visualization.Html))
+        {
+            throw new PresentationGenerationException(
+                "The generated HTML visualization is unavailable for PowerPoint planning.");
+        }
+
         var theme = _themes.GetPresentationTheme(
             settings.Themes.PresentationThemeId);
 
         var rawPlan = await _planner.CreatePresentationPlanAsync(
             normalizedQuery,
             CopilotModelSelection.Automatic,
-            visualization.Id,
+            visualization,
             progress,
             cancellationToken);
         var plan = ValidateAndNormalize(rawPlan);
@@ -126,11 +140,20 @@ public sealed partial class GeneratePresentationUseCase
             .Select((slide, index) => ValidateSlide(slide, index + 1))
             .ToList();
 
-        if (!normalizedSlides.Any(
-                slide => slide.Kind is "diagram" or "comparison"))
+        if (!VisualKinds.Contains(normalizedSlides[0].Kind))
         {
             throw new PresentationGenerationException(
-                "The presentation plan must include at least one visual diagram or comparison slide.");
+                "The first presentation content slide must be visual.");
+        }
+
+        var visualSlideCount = normalizedSlides.Count(
+            slide => VisualKinds.Contains(slide.Kind));
+        var minimumVisualSlideCount =
+            ((normalizedSlides.Count * 2) + 2) / 3;
+        if (visualSlideCount < minimumVisualSlideCount)
+        {
+            throw new PresentationGenerationException(
+                $"At least {minimumVisualSlideCount} of the {normalizedSlides.Count} content slides must be visual.");
         }
 
         return new PresentationPlan
@@ -182,7 +205,7 @@ public sealed partial class GeneratePresentationUseCase
             nodes,
             slideNumber);
 
-        if (kind is "diagram" or "comparison")
+        if (VisualKinds.Contains(kind))
         {
             if (nodes.Count < 2)
             {
@@ -196,10 +219,16 @@ public sealed partial class GeneratePresentationUseCase
                     $"Visual slide {slideNumber} must use node details instead of bullet points.");
             }
 
-            if (kind == "comparison" && connections.Count > 0)
+            if (kind != "diagram" && connections.Count > 0)
             {
                 throw new PresentationGenerationException(
-                    $"Comparison slide {slideNumber} must not contain connections.");
+                    $"Visual card slide {slideNumber} must not contain connections.");
+            }
+
+            if (kind == "diagram" && connections.Count == 0)
+            {
+                throw new PresentationGenerationException(
+                    $"Diagram slide {slideNumber} must contain at least one connection.");
             }
         }
         else
@@ -265,6 +294,15 @@ public sealed partial class GeneratePresentationUseCase
                     $"Presentation slide {slideNumber} uses unavailable Azure icon '{iconKey}'.");
             }
 
+            var tone = string.IsNullOrWhiteSpace(node.Tone)
+                ? "primary"
+                : node.Tone.Trim().ToLowerInvariant();
+            if (!SupportedNodeTones.Contains(tone))
+            {
+                throw new PresentationGenerationException(
+                    $"Presentation slide {slideNumber} uses unsupported node tone '{node.Tone}'.");
+            }
+
             normalized.Add(new PresentationNodePlan
             {
                 Id = id,
@@ -277,6 +315,7 @@ public sealed partial class GeneratePresentationUseCase
                     $"slide {slideNumber} node detail",
                     MaximumNodeDetailLength),
                 IconKey = iconKey,
+                Tone = tone,
             });
         }
 

@@ -57,7 +57,10 @@ public sealed class FileGeneratedArtifactStore : IGeneratedArtifactStore
             visualizationId,
             artifactDirectory,
             filePath,
-            new Uri(filePath, UriKind.Absolute));
+            new Uri(filePath, UriKind.Absolute))
+        {
+            Html = html,
+        };
     }
 
     private static void ValidateVisualizationId(string visualizationId)

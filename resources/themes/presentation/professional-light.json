@@ -28,9 +28,9 @@
     "slideTitleSizePoints": 20,
     "summarySizePoints": 15,
     "bodySizePoints": 16,
-    "nodeLabelSizePoints": 11,
-    "nodeDetailSizePoints": 8,
-    "connectionLabelSizePoints": 7,
+    "nodeLabelSizePoints": 12,
+    "nodeDetailSizePoints": 10,
+    "connectionLabelSizePoints": 8,
     "footerSizePoints": 7
   },
   "appearance": {

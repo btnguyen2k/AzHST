@@ -49,6 +49,13 @@ internal static class ApplicationCompositionRoot
             () => mainWindow,
             themes);
         var loginDialogService = new GitHubLoginDialogService(() => mainWindow);
+        var aboutDialogService = new AboutDialogService(
+            () => mainWindow,
+            new EmbeddedMarkdownDocumentLoader(),
+            typeof(App).Assembly,
+            applicationIdentity,
+            webViewAvailability,
+            browser);
         var viewModel = new MainWindowViewModel(
             generationUseCase,
             presentationUseCase,
@@ -61,6 +68,7 @@ internal static class ApplicationCompositionRoot
             clipboardService,
             settingsDialogService,
             loginDialogService,
+            aboutDialogService,
             applicationIdentity,
             webViewAvailability,
             testOptions.SkipGitHubSignInAtStartup

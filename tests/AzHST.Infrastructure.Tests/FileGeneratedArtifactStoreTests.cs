@@ -51,6 +51,9 @@ public sealed class FileGeneratedArtifactStoreTests : IDisposable
             "<!doctype html><html><body>Gateway</body></html>",
             await File.ReadAllTextAsync(artifact.FilePath));
         Assert.True(artifact.FileUri.IsFile);
+        Assert.Equal(
+            "<!doctype html><html><body>Gateway</body></html>",
+            artifact.Html);
     }
 
     [Fact]

@@ -93,7 +93,10 @@ public sealed class GenerateVisualizationUseCase
             GenerationStage.Completed,
             "Visualization ready."));
 
-        return artifact;
+        return artifact with
+        {
+            Html = securedHtml,
+        };
     }
 
     private static string NormalizeInvalidQueryMessage(string message)

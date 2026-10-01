@@ -18,6 +18,12 @@
   </ItemGroup>
 
   <ItemGroup>
+    <EmbeddedResource
+        Include="Fixtures\embedded-document.md"
+        LogicalName="AzHST.Tests.EmbeddedDocument.md" />
+  </ItemGroup>
+
+  <ItemGroup>
     <ProjectReference Include="..\..\src\AzHST.Application\AzHST.Application.csproj" />
     <ProjectReference Include="..\..\src\AzHST.Infrastructure\AzHST.Infrastructure.csproj" />
   </ItemGroup>

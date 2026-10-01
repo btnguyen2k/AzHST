@@ -13,8 +13,9 @@ AzHST answers Azure and Microsoft services questions with a visual artifact rath
 7. Validate and constrain the generated document.
 8. Save it as `generated\<id>\index.html`.
 9. Preview it in Avalonia's native WebView and optionally open it externally.
-10. Optionally generate a structured slide plan and build `presentation.pptx`
-    beside the HTML artifact.
+10. Optionally extract a bounded structural outline from the secured HTML,
+    generate a visual-first slide plan that follows it, and build
+    `presentation.pptx` beside the HTML artifact.
 
 The design keeps model orchestration, operating-system integration, and UI concerns replaceable. The current implementation intentionally does not include conversation persistence, prompt history, Azure API access, retrieval-augmented generation, custom Copilot tools, or deployment packaging.
 
@@ -65,6 +66,7 @@ Infrastructure implements the application ports:
 - `CopilotVisualizationClient` owns the Copilot client and session lifecycle
 - `FileAzureIconCatalog` validates bundled SVGs, ranks query-relevant icons, and preserves their original bytes as data URIs
 - `FileOutputThemeCatalog` strictly loads and validates bundled HTML and presentation theme JSON
+- `HtmlPresentationOutlineBuilder` parses secured HTML into a bounded, ordered set of visible headings, labels, table rows, controls, and diagram text for presentation planning
 - `OpenXmlPresentationBuilder` creates and validates editable 16:9 PPTX packages
 - `GitHubCliAuthenticationService` performs a non-interactive `gh` account check
 - `JsonSettingsRepository` performs atomic JSON settings writes
@@ -81,8 +83,10 @@ The Avalonia project is the composition root and presentation layer:
 
 - `App` and `ApplicationCompositionRoot` construct concrete services
 - view models expose state and asynchronous commands
-- views define the desktop shell and settings dialog
+- views define the desktop shell and tabbed settings/about dialogs
 - `SettingsDialogService` contains window-specific dialog behavior
+- `AboutDialogService` reads the Desktop assembly's embedded README and release
+  notes, then supplies their runtime-rendered HTML to the About window
 
 No service locator or static global container is used. Constructor dependencies keep ownership explicit.
 
@@ -126,7 +130,8 @@ sequenceDiagram
         VM->>View: Navigate and/or open
         opt Build PowerPoint
             VM->>PUC: Execute(question, visualization, settings)
-            PUC->>Copilot: CreatePresentationPlan(question, model, ID)
+            PUC->>Copilot: CreatePresentationPlan(question, visualization)
+            Copilot->>Copilot: Extract bounded secured-HTML outline
             Copilot-->>PUC: Structured bounded slide plan
             PUC->>Themes: Resolve selected presentation theme
             Themes-->>PUC: Typed presentation theme
@@ -186,18 +191,34 @@ materials, and documentation under the current
 
 The application never asks the model to generate a binary file or
 PresentationML. `CopilotVisualizationClient` uses structured output to request
-a 3-10 slide plan containing bounded titles, summaries, bullets, visual nodes,
-connections, source names, and approved icon keys.
+a 4-9 content-slide plan. Before that request,
+`HtmlPresentationOutlineBuilder` parses the secured in-memory HTML with
+AngleSharp and preserves its visible page order: title, headings, paragraphs,
+list and definition items, table rows, image descriptions, controls, section
+labels, and SVG labels. Scripts, styles, templates, embedded image bytes, and
+other active content are excluded. Lines and total outline size are bounded
+before the text is sent to Copilot.
 
-`GeneratePresentationUseCase` validates every field, requires a visual slide,
-checks node IDs and connection endpoints, and rejects unavailable icon keys.
+`GeneratePresentationUseCase` validates every field, requires the first
+content slide to be visual, requires at least two thirds of content slides to
+be diagrams, comparisons, or card grids, checks semantic node tones, node IDs,
+and connection endpoints, and rejects unavailable icon keys. Visual slides use
+node details instead of bullets. Diagrams require directional connections;
+comparison and card slides prohibit them.
+
 `OpenXmlPresentationBuilder` then creates a 16:9 deck with:
 
 - an AzHST title slide
-- editable native text and shapes
+- editable native text, numbered point cards, semantic card grids, and shapes
 - directional connectors for architecture and process diagrams
+- horizontal layouts for short flows and small comparisons
 - original Azure SVG icon data embedded in the package
 - artifact ID, slide numbers, source names, and production-validation guidance
+
+Interactive HTML states, request paths, or progressive steps are represented
+as adjacent visual slides. The current renderer deliberately does not emit
+PowerPoint animation XML, keeping the package deterministic and broadly
+editable.
 
 The builder validates the completed package against the Office 2019 Open XML
 schema before atomically replacing
@@ -213,6 +234,20 @@ application code.
 ### Agent capabilities
 
 The Copilot client uses `CopilotClientMode.Empty` and supplies `AvailableTools = []`. It does not expose shell, file, GitHub MCP, custom-agent, skill, or user-elicitation tools. Host custom instructions and ambient Copilot CLI behavior are disabled by the SDK's empty-mode defaults.
+
+### Embedded application documents
+
+`README.md` and `RELEASE-NOTES.md` are compiled into the Desktop assembly under
+stable logical resource names. `EmbeddedMarkdownDocumentLoader` reads the
+resource streams at runtime and uses Markdig to build standalone HTML.
+Model-generated content is not involved.
+
+Raw Markdown HTML is disabled. The generated document adds a CSP that blocks
+scripts, network connections, forms, frames, objects, and external images.
+The About WebView may navigate only to its in-memory document; HTTP and HTTPS
+links are intercepted and delegated to the default browser. If no embedded
+WebView adapter is available, the same embedded Markdown is shown as
+selectable text.
 
 ### Authentication
 

@@ -7,7 +7,7 @@ public interface ICopilotPresentationPlanner
     Task<PresentationPlan> CreatePresentationPlanAsync(
         string query,
         string model,
-        string visualizationId,
+        VisualizationArtifact visualization,
         IProgress<GenerationProgress>? progress = null,
         CancellationToken cancellationToken = default);
 }

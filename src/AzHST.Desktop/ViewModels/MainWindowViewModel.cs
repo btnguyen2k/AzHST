@@ -23,6 +23,7 @@ public sealed partial class MainWindowViewModel : ObservableObject
     private readonly IClipboardService _clipboardService;
     private readonly ISettingsDialogService _settingsDialogService;
     private readonly IGitHubLoginDialogService _loginDialogService;
+    private readonly IAboutDialogService _aboutDialogService;
     private readonly WebViewAvailability _webViewAvailability;
     private readonly bool _skipGitHubSignInAtStartup;
     private VisualizationArtifact? _visualizationArtifact;
@@ -91,6 +92,7 @@ public sealed partial class MainWindowViewModel : ObservableObject
         IClipboardService clipboardService,
         ISettingsDialogService settingsDialogService,
         IGitHubLoginDialogService loginDialogService,
+        IAboutDialogService aboutDialogService,
         ApplicationIdentity applicationIdentity,
         WebViewAvailability webViewAvailability,
         bool skipGitHubSignInAtStartup = false)
@@ -106,6 +108,7 @@ public sealed partial class MainWindowViewModel : ObservableObject
         _clipboardService = clipboardService;
         _settingsDialogService = settingsDialogService;
         _loginDialogService = loginDialogService;
+        _aboutDialogService = aboutDialogService;
         ApplicationIdentityText = applicationIdentity.DisplayText;
         _webViewAvailability = webViewAvailability;
         _skipGitHubSignInAtStartup = skipGitHubSignInAtStartup;
@@ -461,6 +464,20 @@ public sealed partial class MainWindowViewModel : ObservableObject
         }
     }
 
+    [RelayCommand(CanExecute = nameof(CanRunUiAction))]
+    private async Task OpenAboutAsync()
+    {
+        try
+        {
+            await _aboutDialogService.ShowAsync();
+        }
+        catch (Exception exception)
+        {
+            StatusMessage =
+                $"Could not open application information: {exception.Message}";
+        }
+    }
+
     private bool CanGoHome()
     {
         return !IsBusy && HasPreview;
@@ -638,6 +655,7 @@ public sealed partial class MainWindowViewModel : ObservableObject
         CopyPresentationPathCommand.NotifyCanExecuteChanged();
         OpenPresentationFolderCommand.NotifyCanExecuteChanged();
         OpenSettingsCommand.NotifyCanExecuteChanged();
+        OpenAboutCommand.NotifyCanExecuteChanged();
         GoHomeCommand.NotifyCanExecuteChanged();
     }
 

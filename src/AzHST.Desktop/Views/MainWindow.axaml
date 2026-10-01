@@ -293,6 +293,19 @@
                     Text="Open in browser" />
               </StackPanel>
             </Button>
+            <Button
+                Width="40"
+                AutomationProperties.AutomationId="AboutButton"
+                AutomationProperties.Name="About AzHST"
+                Classes="secondary"
+                Command="{Binding OpenAboutCommand}"
+                Padding="9"
+                ToolTip.Tip="About AzHST">
+              <PathIcon
+                    Width="18"
+                    Height="18"
+                    Data="{StaticResource AboutIcon}" />
+            </Button>
           </StackPanel>
         </Grid>
 

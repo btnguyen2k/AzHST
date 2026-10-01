@@ -384,7 +384,7 @@ public sealed class OpenXmlPresentationBuilder : IPresentationBuilder
             ],
             A.TextAnchoringTypeValues.Center);
 
-        if (plan.Kind is "diagram" or "comparison")
+        if (plan.Kind is "diagram" or "comparison" or "cards")
         {
             BuildVisualSlide(
                 slidePart,
@@ -416,6 +416,7 @@ public sealed class OpenXmlPresentationBuilder : IPresentationBuilder
         PresentationSlidePlan plan,
         PresentationRenderTheme theme)
     {
+        var cardsTop = 1.2;
         if (plan.Summary.Length > 0)
         {
             AddTextBox(
@@ -423,13 +424,13 @@ public sealed class OpenXmlPresentationBuilder : IPresentationBuilder
                 ref shapeId,
                 theme,
                 Emu(0.75),
-                Emu(1.25),
+                Emu(1.14),
                 Emu(11.8),
-                Emu(0.9),
+                Emu(0.78),
                 [
                     new TextParagraph(
                         plan.Summary,
-                        theme.SummarySize,
+                        Math.Min(theme.SummarySize, 1_400),
                         theme.Text,
                         false),
                 ],
@@ -437,27 +438,109 @@ public sealed class OpenXmlPresentationBuilder : IPresentationBuilder
                 theme.SummarySurface,
                 theme.Border,
                 cornerRadius: theme.RoundedCards);
+            cardsTop = 2.12;
         }
 
-        var bulletTop = plan.Summary.Length > 0 ? 2.38 : 1.35;
-        var paragraphs = plan.Bullets
-            .Select(bullet => new TextParagraph(
-                $"•  {bullet}",
-                theme.BodySize,
-                theme.Text,
-                false))
-            .ToArray();
+        if (plan.Bullets.Count == 0)
+        {
+            return;
+        }
 
-        AddTextBox(
-            shapeTree,
-            ref shapeId,
-            theme,
-            Emu(0.95),
-            Emu(bulletTop),
-            Emu(11.25),
-            Emu(3.65),
-            paragraphs,
-            A.TextAnchoringTypeValues.Top);
+        var columns = plan.Bullets.Count switch
+        {
+            1 => 1,
+            2 => 2,
+            3 => 3,
+            _ => 2,
+        };
+        var rows = (int)Math.Ceiling(plan.Bullets.Count / (double)columns);
+        var bounds = new SlideRect(
+            Emu(0.75),
+            Emu(cardsTop),
+            Emu(11.8),
+            Emu(6.12 - cardsTop));
+        var horizontalGap = Emu(0.22);
+        var verticalGap = Emu(0.22);
+        var cardWidth =
+            (bounds.Width - (horizontalGap * (columns - 1))) / columns;
+        var availableCardHeight =
+            (bounds.Height - (verticalGap * (rows - 1))) / rows;
+        var cardHeight = Math.Min(availableCardHeight, Emu(1.85));
+        var totalHeight = (cardHeight * rows) + (verticalGap * (rows - 1));
+        var startY = bounds.Y + Math.Max((bounds.Height - totalHeight) / 2, 0);
+        var accents = new[]
+        {
+            theme.Primary,
+            theme.Accent,
+            theme.Success,
+            theme.Warning,
+        };
+
+        for (var index = 0; index < plan.Bullets.Count; index++)
+        {
+            var row = index / columns;
+            var column = index % columns;
+            var x = bounds.X + (column * (cardWidth + horizontalGap));
+            var y = startY + (row * (cardHeight + verticalGap));
+            var accent = accents[index % accents.Length];
+
+            AddRectangle(
+                shapeTree,
+                ref shapeId,
+                x,
+                y,
+                cardWidth,
+                cardHeight,
+                theme.Surface,
+                theme.Border,
+                cornerRadius: theme.RoundedCards);
+            AddRectangle(
+                shapeTree,
+                ref shapeId,
+                x,
+                y,
+                Emu(0.07),
+                cardHeight,
+                accent,
+                accent,
+                cornerRadius: false);
+            AddTextBox(
+                shapeTree,
+                ref shapeId,
+                theme,
+                x + Emu(0.22),
+                y + Emu(0.2),
+                Emu(0.48),
+                Emu(0.42),
+                [
+                    new TextParagraph(
+                        (index + 1).ToString(),
+                        Math.Min(theme.NodeLabelSize, 1_100),
+                        theme.Surface,
+                        true),
+                ],
+                A.TextAnchoringTypeValues.Center,
+                accent,
+                accent,
+                cornerRadius: true,
+                horizontalAlignment: A.TextAlignmentTypeValues.Center);
+            AddTextBox(
+                shapeTree,
+                ref shapeId,
+                theme,
+                x + Emu(0.82),
+                y + Emu(0.15),
+                cardWidth - Emu(1.02),
+                cardHeight - Emu(0.3),
+                [
+                    new TextParagraph(
+                        plan.Bullets[index],
+                        Math.Min(theme.BodySize, 1_500),
+                        theme.Text,
+                        false),
+                ],
+                A.TextAnchoringTypeValues.Center);
+        }
     }
 
     private void BuildVisualSlide(
@@ -492,7 +575,7 @@ public sealed class OpenXmlPresentationBuilder : IPresentationBuilder
             Emu(plan.Summary.Length > 0 ? 1.82 : 1.35),
             Emu(12.1),
             Emu(plan.Summary.Length > 0 ? 4.35 : 4.82));
-        var positions = CalculateNodePositions(plan.Nodes.Count, bounds);
+        var positions = CalculateNodePositions(plan, bounds);
 
         if (plan.Kind == "diagram")
         {
@@ -537,6 +620,11 @@ public sealed class OpenXmlPresentationBuilder : IPresentationBuilder
         bool comparison,
         PresentationRenderTheme theme)
     {
+        var accentColor = ResolveNodeAccent(
+            node.Tone,
+            comparison ? theme.Comparison : theme.Primary,
+            theme);
+
         AddRectangle(
             shapeTree,
             ref shapeId,
@@ -545,8 +633,18 @@ public sealed class OpenXmlPresentationBuilder : IPresentationBuilder
             position.Width,
             position.Height,
             theme.Surface,
-            comparison ? theme.Comparison : theme.Primary,
+            accentColor,
             cornerRadius: theme.RoundedCards);
+        AddRectangle(
+            shapeTree,
+            ref shapeId,
+            position.X,
+            position.Y,
+            position.Width,
+            Emu(0.07),
+            accentColor,
+            accentColor,
+            cornerRadius: false);
 
         var hasIcon = node.IconKey.Length > 0;
         if (hasIcon)
@@ -586,7 +684,7 @@ public sealed class OpenXmlPresentationBuilder : IPresentationBuilder
 
         var labelTop = position.Y + (hasIcon
             ? Emu(theme.ShowIconTile ? 0.72 : 0.68)
-            : Emu(0.2));
+            : Emu(0.24));
         AddTextBox(
             shapeTree,
             ref shapeId,
@@ -663,10 +761,41 @@ public sealed class OpenXmlPresentationBuilder : IPresentationBuilder
     }
 
     private static IReadOnlyList<SlideRect> CalculateNodePositions(
-        int nodeCount,
+        PresentationSlidePlan plan,
         SlideRect bounds)
     {
-        var columns = Math.Min(4, nodeCount <= 3 ? nodeCount : (int)Math.Ceiling(Math.Sqrt(nodeCount)));
+        if (plan.Kind == "diagram"
+            && IsLinearSequence(plan))
+        {
+            return CalculateSingleRowPositions(
+                plan.Nodes.Count,
+                bounds,
+                maximumHeight: Emu(2.65));
+        }
+
+        if (plan.Kind == "comparison" && plan.Nodes.Count <= 4)
+        {
+            return CalculateSingleRowPositions(
+                plan.Nodes.Count,
+                bounds,
+                maximumHeight: Emu(3.25));
+        }
+
+        if (plan.Kind == "cards" && plan.Nodes.Count <= 3)
+        {
+            return CalculateSingleRowPositions(
+                plan.Nodes.Count,
+                bounds,
+                maximumHeight: Emu(3.05));
+        }
+
+        var maximumColumns = plan.Kind == "cards" ? 3 : 4;
+        var nodeCount = plan.Nodes.Count;
+        var columns = Math.Min(
+            maximumColumns,
+            nodeCount <= 3
+                ? nodeCount
+                : (int)Math.Ceiling(Math.Sqrt(nodeCount)));
         var rows = (int)Math.Ceiling(nodeCount / (double)columns);
         var horizontalGap = Emu(0.22);
         var verticalGap = Emu(0.25);
@@ -686,6 +815,73 @@ public sealed class OpenXmlPresentationBuilder : IPresentationBuilder
         }
 
         return positions;
+    }
+
+    private static IReadOnlyList<SlideRect> CalculateSingleRowPositions(
+        int nodeCount,
+        SlideRect bounds,
+        long maximumHeight)
+    {
+        var horizontalGap = Emu(0.22);
+        var width =
+            (bounds.Width - (horizontalGap * (nodeCount - 1))) / nodeCount;
+        var height = Math.Min(bounds.Height, maximumHeight);
+        var y = bounds.Y + ((bounds.Height - height) / 2);
+        var positions = new List<SlideRect>(nodeCount);
+
+        for (var index = 0; index < nodeCount; index++)
+        {
+            positions.Add(new SlideRect(
+                bounds.X + (index * (width + horizontalGap)),
+                y,
+                width,
+                height));
+        }
+
+        return positions;
+    }
+
+    private static bool IsLinearSequence(PresentationSlidePlan plan)
+    {
+        if (plan.Nodes.Count is < 2 or > 5
+            || plan.Connections.Count != plan.Nodes.Count - 1)
+        {
+            return false;
+        }
+
+        for (var index = 0; index < plan.Nodes.Count - 1; index++)
+        {
+            if (!plan.Connections.Any(connection =>
+                    string.Equals(
+                        connection.From,
+                        plan.Nodes[index].Id,
+                        StringComparison.Ordinal)
+                    && string.Equals(
+                        connection.To,
+                        plan.Nodes[index + 1].Id,
+                        StringComparison.Ordinal)))
+            {
+                return false;
+            }
+        }
+
+        return true;
+    }
+
+    private static string ResolveNodeAccent(
+        string tone,
+        string primaryColor,
+        PresentationRenderTheme theme)
+    {
+        return tone switch
+        {
+            "accent" => theme.Accent,
+            "success" => theme.Success,
+            "warning" => theme.Warning,
+            "danger" => theme.Danger,
+            "neutral" => theme.Border,
+            _ => primaryColor,
+        };
     }
 
     private static void AddConnection(

@@ -26,6 +26,12 @@
 
   <ItemGroup>
     <AvaloniaResource Include="Assets\**" />
+    <EmbeddedResource
+        Include="..\..\README.md"
+        LogicalName="AzHST.Readme.md" />
+    <EmbeddedResource
+        Include="..\..\RELEASE-NOTES.md"
+        LogicalName="AzHST.ReleaseNotes.md" />
     <Content Include="..\..\resources\azure-icons\**\*.svg">
       <Link>resources\azure-icons\%(RecursiveDir)%(Filename)%(Extension)</Link>
       <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>

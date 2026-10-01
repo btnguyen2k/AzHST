@@ -1,0 +1,135 @@
+<Window
+    x:Class="AzHST.Desktop.Views.AboutWindow"
+    xmlns="https://github.com/avaloniaui"
+    xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+    xmlns:sys="using:System"
+    xmlns:vm="using:AzHST.Desktop.ViewModels"
+    x:DataType="vm:AboutWindowViewModel"
+    Title="{Binding WindowTitle}"
+    Width="920"
+    Height="720"
+    MinWidth="720"
+    MinHeight="540"
+    Icon="/Assets/azhst-icon.ico"
+    Background="#0E162A"
+    WindowStartupLocation="CenterOwner">
+
+  <Window.Resources>
+    <DataTemplate x:Key="HtmlDocumentTemplate" x:DataType="sys:String">
+      <NativeWebView
+          Tag="{Binding .}"
+          Loaded="DocumentationWebView_Loaded"
+          NavigationStarted="DocumentationWebView_NavigationStarted"
+          NewWindowRequested="DocumentationWebView_NewWindowRequested" />
+    </DataTemplate>
+  </Window.Resources>
+
+  <Window.Styles>
+    <Style Selector="Button">
+      <Setter Property="MinHeight" Value="40" />
+      <Setter Property="Padding" Value="16,8" />
+      <Setter Property="CornerRadius" Value="8" />
+      <Setter Property="FontWeight" Value="SemiBold" />
+    </Style>
+    <Style Selector="TabItem">
+      <Setter Property="Padding" Value="18,10" />
+      <Setter Property="FontWeight" Value="SemiBold" />
+    </Style>
+  </Window.Styles>
+
+  <Grid Margin="26" RowDefinitions="Auto,*,Auto,Auto">
+    <Grid ColumnDefinitions="Auto,*">
+      <Border
+          Width="58"
+          Height="58"
+          Padding="8"
+          Background="#EAF4FC"
+          CornerRadius="14">
+        <Image Source="/Assets/azhst-icon.png" />
+      </Border>
+      <StackPanel Grid.Column="1" Margin="16,1,0,0" Spacing="3">
+        <TextBlock
+            FontSize="26"
+            FontWeight="Bold"
+            Foreground="#F5F8FF"
+            Text="{Binding ApplicationName}" />
+        <TextBlock
+            FontSize="13"
+            Foreground="#8FA4CB"
+            Text="Azure - How stuff works" />
+        <TextBlock
+            FontSize="12"
+            Foreground="#60769D"
+            Text="{Binding VersionText}" />
+      </StackPanel>
+    </Grid>
+
+    <TabControl
+        Grid.Row="1"
+        Margin="0,22,0,0"
+        ItemsSource="{Binding Tabs}"
+        SelectedIndex="0">
+      <TabControl.ItemTemplate>
+        <DataTemplate x:DataType="vm:AboutTabViewModel">
+          <TextBlock Text="{Binding Title}" />
+        </DataTemplate>
+      </TabControl.ItemTemplate>
+      <TabControl.ContentTemplate>
+        <DataTemplate x:DataType="vm:AboutTabViewModel">
+          <Grid Margin="0,12,0,0">
+            <Border
+                Background="#0B1020"
+                BorderBrush="#2B3A61"
+                BorderThickness="1"
+                CornerRadius="10"
+                ClipToBounds="True"
+                IsVisible="{Binding HasHtmlSource}">
+              <ContentControl
+                  Content="{Binding HtmlSource}"
+                  ContentTemplate="{StaticResource HtmlDocumentTemplate}" />
+            </Border>
+            <Border
+                Padding="18"
+                Background="#0B1020"
+                BorderBrush="#2B3A61"
+                BorderThickness="1"
+                CornerRadius="10"
+                IsVisible="{Binding ShowTextFallback}">
+              <ScrollViewer>
+                <SelectableTextBlock
+                    FontFamily="Cascadia Code, Consolas, monospace"
+                    Foreground="#DCE7FF"
+                    Text="{Binding Markdown}"
+                    TextWrapping="Wrap" />
+              </ScrollViewer>
+            </Border>
+          </Grid>
+        </DataTemplate>
+      </TabControl.ContentTemplate>
+    </TabControl>
+
+    <Border
+        Grid.Row="2"
+        Margin="0,12,0,0"
+        Padding="12,9"
+        Background="#121D34"
+        BorderBrush="#253454"
+        BorderThickness="1"
+        CornerRadius="8"
+        IsVisible="{Binding HasStatusMessage}">
+      <TextBlock
+          FontSize="12"
+          Foreground="#9DB0D1"
+          Text="{Binding StatusMessage}"
+          TextWrapping="Wrap" />
+    </Border>
+
+    <Button
+        Grid.Row="3"
+        MinWidth="96"
+        Margin="0,14,0,0"
+        HorizontalAlignment="Right"
+        Click="Close_Click"
+        Content="Close" />
+  </Grid>
+</Window>

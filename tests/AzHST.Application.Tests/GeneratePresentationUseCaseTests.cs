@@ -28,12 +28,13 @@ public sealed class GeneratePresentationUseCaseTests
         Assert.Equal(["plan", "build"], calls);
         Assert.Equal("Explain Azure Application Gateway", planner.Query);
         Assert.Equal(CopilotModelSelection.Automatic, planner.Model);
-        Assert.Equal(visualization.Id, planner.VisualizationId);
+        Assert.Same(visualization, planner.Visualization);
         Assert.Same(visualization, builder.Visualization);
         Assert.Equal(
             OutputThemeSettings.DefaultPresentationThemeId,
             builder.Theme?.Id);
-        Assert.Equal("diagram", builder.Plan!.Slides[1].Kind);
+        Assert.Equal("diagram", builder.Plan!.Slides[0].Kind);
+        Assert.Equal("cards", builder.Plan.Slides[1].Kind);
         Assert.Equal(builder.Artifact, result);
     }
 
@@ -81,13 +82,13 @@ public sealed class GeneratePresentationUseCaseTests
     }
 
     [Fact]
-    public async Task ExecuteAsync_RejectsPlanWithoutVisualSlide()
+    public async Task ExecuteAsync_RejectsPlanWhoseFirstSlideIsNotVisual()
     {
         var plan = CreateValidPlan();
-        plan.Slides[1].Kind = "content";
-        plan.Slides[1].Nodes = [];
-        plan.Slides[1].Connections = [];
-        plan.Slides[1].Bullets = ["A content-only slide."];
+        plan.Slides[0].Kind = "content";
+        plan.Slides[0].Nodes = [];
+        plan.Slides[0].Connections = [];
+        plan.Slides[0].Bullets = ["A content-only opening slide."];
         var builder = new StubBuilder([]);
         var useCase = new GeneratePresentationUseCase(
             new StubPlanner(plan, []),
@@ -101,7 +102,36 @@ public sealed class GeneratePresentationUseCaseTests
                 CreateVisualization(),
                 new AppSettings()));
 
-        Assert.Contains("visual diagram or comparison", exception.Message);
+        Assert.Contains("first presentation content slide must be visual", exception.Message);
+        Assert.Null(builder.Plan);
+    }
+
+    [Fact]
+    public async Task ExecuteAsync_RejectsPlanWithoutEnoughVisualSlides()
+    {
+        var plan = CreateValidPlan();
+        foreach (var slide in plan.Slides.Skip(1).Take(2))
+        {
+            slide.Kind = "content";
+            slide.Nodes = [];
+            slide.Connections = [];
+            slide.Bullets = ["A text-only slide."];
+        }
+
+        var builder = new StubBuilder([]);
+        var useCase = new GeneratePresentationUseCase(
+            new StubPlanner(plan, []),
+            builder,
+            new StubAzureIconCatalog("networking/app-gateway"),
+            new StubOutputThemeCatalog());
+
+        var exception = await Assert.ThrowsAsync<PresentationGenerationException>(
+            () => useCase.ExecuteAsync(
+                "Explain Azure Application Gateway",
+                CreateVisualization(),
+                new AppSettings()));
+
+        Assert.Contains("At least 3 of the 4 content slides must be visual", exception.Message);
         Assert.Null(builder.Plan);
     }
 
@@ -109,7 +139,7 @@ public sealed class GeneratePresentationUseCaseTests
     public async Task ExecuteAsync_RejectsUnknownAzureIcon()
     {
         var plan = CreateValidPlan();
-        plan.Slides[1].Nodes[1].IconKey = "networking/unknown";
+        plan.Slides[0].Nodes[1].IconKey = "networking/unknown";
         var builder = new StubBuilder([]);
         var useCase = new GeneratePresentationUseCase(
             new StubPlanner(plan, []),
@@ -131,7 +161,7 @@ public sealed class GeneratePresentationUseCaseTests
     public async Task ExecuteAsync_RejectsConnectionToMissingNode()
     {
         var plan = CreateValidPlan();
-        plan.Slides[1].Connections[0].To = "missing";
+        plan.Slides[0].Connections[0].To = "missing";
         var builder = new StubBuilder([]);
         var useCase = new GeneratePresentationUseCase(
             new StubPlanner(plan, []),
@@ -153,7 +183,7 @@ public sealed class GeneratePresentationUseCaseTests
     public async Task ExecuteAsync_RejectsVisualSlideWithIgnoredBullets()
     {
         var plan = CreateValidPlan();
-        plan.Slides[1].Bullets = ["This would not fit the visual layout."];
+        plan.Slides[0].Bullets = ["This would not fit the visual layout."];
         var builder = new StubBuilder([]);
         var useCase = new GeneratePresentationUseCase(
             new StubPlanner(plan, []),
@@ -171,6 +201,50 @@ public sealed class GeneratePresentationUseCaseTests
         Assert.Null(builder.Plan);
     }
 
+    [Fact]
+    public async Task ExecuteAsync_RejectsUnsupportedNodeTone()
+    {
+        var plan = CreateValidPlan();
+        plan.Slides[1].Nodes[0].Tone = "rainbow";
+        var builder = new StubBuilder([]);
+        var useCase = new GeneratePresentationUseCase(
+            new StubPlanner(plan, []),
+            builder,
+            new StubAzureIconCatalog("networking/app-gateway"),
+            new StubOutputThemeCatalog());
+
+        var exception = await Assert.ThrowsAsync<PresentationGenerationException>(
+            () => useCase.ExecuteAsync(
+                "Explain Azure Application Gateway",
+                CreateVisualization(),
+                new AppSettings()));
+
+        Assert.Contains("unsupported node tone", exception.Message);
+        Assert.Null(builder.Plan);
+    }
+
+    [Fact]
+    public async Task ExecuteAsync_RejectsVisualizationWithoutHtml()
+    {
+        var visualization = CreateVisualization() with
+        {
+            Html = string.Empty,
+        };
+        var useCase = new GeneratePresentationUseCase(
+            new StubPlanner(CreateValidPlan(), []),
+            new StubBuilder([]),
+            new StubAzureIconCatalog("networking/app-gateway"),
+            new StubOutputThemeCatalog());
+
+        var exception = await Assert.ThrowsAsync<PresentationGenerationException>(
+            () => useCase.ExecuteAsync(
+                "Explain Azure Application Gateway",
+                visualization,
+                new AppSettings()));
+
+        Assert.Contains("HTML visualization is unavailable", exception.Message);
+    }
+
     private static PresentationPlan CreateValidPlan()
     {
         return new PresentationPlan
@@ -179,13 +253,6 @@ public sealed class GeneratePresentationUseCaseTests
             Subtitle = "Request routing and protection",
             Slides =
             [
-                new PresentationSlidePlan
-                {
-                    Kind = "content",
-                    Title = "Overview",
-                    Summary = "Application Gateway is a layer 7 load balancer.",
-                    Bullets = ["Routes requests using listeners and rules."],
-                },
                 new PresentationSlidePlan
                 {
                     Kind = "diagram",
@@ -198,6 +265,7 @@ public sealed class GeneratePresentationUseCaseTests
                             Id = "client",
                             Label = "Client",
                             Detail = "Sends HTTPS.",
+                            Tone = "neutral",
                         },
                         new PresentationNodePlan
                         {
@@ -205,6 +273,7 @@ public sealed class GeneratePresentationUseCaseTests
                             Label = "Application Gateway",
                             Detail = "Routes and protects.",
                             IconKey = "networking/app-gateway",
+                            Tone = "primary",
                         },
                     ],
                     Connections =
@@ -214,6 +283,59 @@ public sealed class GeneratePresentationUseCaseTests
                             From = "client",
                             To = "gateway",
                             Label = "HTTPS",
+                        },
+                    ],
+                },
+                new PresentationSlidePlan
+                {
+                    Kind = "cards",
+                    Title = "Core capabilities",
+                    Summary = "The gateway combines routing, protection, and health-aware delivery.",
+                    Nodes =
+                    [
+                        new PresentationNodePlan
+                        {
+                            Id = "routing",
+                            Label = "Layer 7 routing",
+                            Detail = "Matches listeners and rules to backend pools.",
+                            Tone = "accent",
+                        },
+                        new PresentationNodePlan
+                        {
+                            Id = "waf",
+                            Label = "Web protection",
+                            Detail = "Applies managed and custom WAF policies.",
+                            Tone = "success",
+                        },
+                        new PresentationNodePlan
+                        {
+                            Id = "health",
+                            Label = "Backend health",
+                            Detail = "Sends traffic only to healthy endpoints.",
+                            Tone = "primary",
+                        },
+                    ],
+                },
+                new PresentationSlidePlan
+                {
+                    Kind = "comparison",
+                    Title = "Deployment considerations",
+                    Summary = "Choose the topology that matches exposure and operational needs.",
+                    Nodes =
+                    [
+                        new PresentationNodePlan
+                        {
+                            Id = "public",
+                            Label = "Public frontend",
+                            Detail = "Accepts internet-facing application traffic.",
+                            Tone = "primary",
+                        },
+                        new PresentationNodePlan
+                        {
+                            Id = "private",
+                            Label = "Private frontend",
+                            Detail = "Restricts access to private network paths.",
+                            Tone = "neutral",
                         },
                     ],
                 },
@@ -234,7 +356,24 @@ public sealed class GeneratePresentationUseCaseTests
             "0199abcd1234-app-gateway",
             @"C:\generated\0199abcd1234-app-gateway",
             @"C:\generated\0199abcd1234-app-gateway\index.html",
-            new Uri("file:///C:/generated/0199abcd1234-app-gateway/index.html"));
+            new Uri("file:///C:/generated/0199abcd1234-app-gateway/index.html"))
+        {
+            Html = """
+                <!doctype html>
+                <html>
+                <head><title>Azure Application Gateway</title></head>
+                <body>
+                  <main>
+                    <h1>Azure Application Gateway</h1>
+                    <section>
+                      <h2>Request flow</h2>
+                      <p>Client traffic passes through WAF and routing rules.</p>
+                    </section>
+                  </main>
+                </body>
+                </html>
+                """,
+        };
     }
 
     private sealed class StubPlanner(
@@ -245,19 +384,19 @@ public sealed class GeneratePresentationUseCaseTests
 
         public string? Model { get; private set; }
 
-        public string? VisualizationId { get; private set; }
+        public VisualizationArtifact? Visualization { get; private set; }
 
         public Task<PresentationPlan> CreatePresentationPlanAsync(
             string query,
             string model,
-            string visualizationId,
+            VisualizationArtifact visualization,
             IProgress<GenerationProgress>? progress = null,
             CancellationToken cancellationToken = default)
         {
             calls.Add("plan");
             Query = query;
             Model = model;
-            VisualizationId = visualizationId;
+            Visualization = visualization;
             return Task.FromResult(plan);
         }
     }
@@ -274,7 +413,7 @@ public sealed class GeneratePresentationUseCaseTests
             "0199abcd1234-app-gateway",
             @"C:\generated\0199abcd1234-app-gateway\presentation.pptx",
             new Uri("file:///C:/generated/0199abcd1234-app-gateway/presentation.pptx"),
-            4);
+            5);
 
         public Task<PresentationArtifact> BuildAsync(
             PresentationPlan plan,
