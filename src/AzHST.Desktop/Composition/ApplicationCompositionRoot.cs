@@ -27,15 +27,24 @@ internal static class ApplicationCompositionRoot
             documentProcessor,
             artifactStore,
             artifactIdGenerator);
+        var presentationBuilder = new OpenXmlPresentationBuilder(azureIcons);
+        var presentationUseCase = new GeneratePresentationUseCase(
+            copilotClient,
+            presentationBuilder,
+            azureIcons);
 
         MainWindow? mainWindow = null;
+        var clipboardService = new ClipboardService(() => mainWindow);
         var settingsDialogService = new SettingsDialogService(() => mainWindow);
         var loginDialogService = new GitHubLoginDialogService(() => mainWindow);
         var viewModel = new MainWindowViewModel(
             generationUseCase,
+            presentationUseCase,
             authenticationService,
             settingsRepository,
             browser,
+            browser,
+            clipboardService,
             settingsDialogService,
             loginDialogService,
             webViewAvailability,

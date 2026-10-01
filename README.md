@@ -14,6 +14,7 @@ This repository contains the first functional vertical slice. Authentication, co
 - Copilot-powered query validation for Azure relevance and visual suitability
 - Visual prompts for service explanations, comparisons, integrations, and architecture proposals
 - Self-contained HTML generation with inline CSS, JavaScript, SVG, and official Azure service icons
+- Editable 16:9 PowerPoint generation with native text, shapes, connectors, and Azure icons
 - Timestamp-and-slug visualization IDs with one directory per generated page
 - Content Security Policy injection and external-resource rejection
 - Native WebView preview on Windows, macOS, and Linux
@@ -86,7 +87,7 @@ src\
   AzHST.Desktop\           Avalonia views, view models, UI services, and composition root
 tests\
   AzHST.Application.Tests\ Core orchestration and generated-document policy tests
-  AzHST.Infrastructure.Tests\ Filesystem artifact persistence tests
+  AzHST.Infrastructure.Tests\ Filesystem, icon catalog, and PowerPoint package tests
 docs\
   architecture.md          Design, data flow, trust boundaries, and roadmap
 resources\
@@ -106,6 +107,7 @@ For each submitted question, AzHST:
 5. Makes a second Copilot request for a standalone HTML page with clear text sections, a prominent visual stage, stateful controls, purposeful animation, reduced-motion support, and optional official icon placeholders.
 6. Replaces approved placeholders with the original SVG bytes encoded as `data:` images.
 7. Secures and saves the page, then navigates the embedded WebView to it.
+8. On request, asks Copilot for a bounded structured slide plan and builds an editable `.pptx` locally with the Open XML SDK.
 
 The default artifact layout is relative to the application's working directory:
 
@@ -113,9 +115,18 @@ The default artifact layout is relative to the application's working directory:
 generated\
   0199abcdef12-azure-app-gateway\
     index.html
+    presentation.pptx
 ```
 
 The generated root can be changed in Settings.
+
+After a visualization is ready, select **Build PowerPoint**. AzHST creates a
+title slide plus 3-10 content slides and stores the deck beside `index.html`.
+The generated file location is displayed in the application with actions to
+copy its path or open its containing folder. Select **Open PowerPoint** to
+launch the file in the operating system's default presentation application.
+Microsoft PowerPoint is not required to generate the file; PowerPoint,
+LibreOffice Impress, or another compatible viewer is required to open it.
 
 ## Local application data
 
@@ -132,6 +143,14 @@ Authentication tokens remain managed by GitHub CLI or the bundled Copilot runtim
 ## Security model
 
 Model output is untrusted. Before saving a page, AzHST requires a complete HTML document and an interactive experience baseline: inline JavaScript, semantic controls, purposeful motion, and a `prefers-reduced-motion` fallback. It also limits document size, rejects external `src` and `href` references and remote CSS URLs, removes `<base>` and model-provided CSP elements, and injects a restrictive Content Security Policy. Azure icon placeholders accept only catalog keys, descriptive alt text, and no model-supplied `src`; AzHST substitutes a validated base64 SVG data URI. The desktop host blocks top-level navigation and new-window requests.
+
+Copilot never generates PowerPoint binary or Open XML markup. It returns a
+structured presentation plan with bounded slide, text, node, connection, and
+icon fields. AzHST validates the plan, constructs the package with the
+[Microsoft Open XML SDK](https://learn.microsoft.com/office/open-xml/presentation/overview),
+embeds approved Azure SVGs, validates the completed package against the Office
+schema, and atomically writes `presentation.pptx`. The generated deck contains
+no macros, external links, or remote resources.
 
 ## Azure icon usage
 

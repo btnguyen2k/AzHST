@@ -7,6 +7,8 @@ public enum GenerationStage
     Generating,
     Securing,
     Saving,
+    PlanningPresentation,
+    BuildingPresentation,
     Completed,
 }
 

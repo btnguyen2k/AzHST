@@ -141,25 +141,85 @@
     </Border>
 
     <Grid Grid.Column="1" Margin="30,24,30,26" RowDefinitions="Auto,*,Auto">
-      <Grid ColumnDefinitions="*,Auto">
-        <StackPanel Spacing="5">
-          <TextBlock
-              FontSize="13"
-              FontWeight="SemiBold"
-              Foreground="#60A5FA"
-              Text="AZURE KNOWLEDGE VISUALIZER" />
-          <TextBlock
-              FontSize="28"
-              FontWeight="Bold"
-              Foreground="#F8FAFF"
-              Text="Understand cloud architecture at a glance" />
-        </StackPanel>
-        <Button
-            Grid.Column="1"
-            Classes="secondary"
-            Command="{Binding OpenExternalCommand}"
-            Content="Open in browser"
-            IsVisible="{Binding HasPreview}" />
+      <Grid RowDefinitions="Auto,Auto">
+        <Grid ColumnDefinitions="*,Auto">
+          <StackPanel Spacing="5">
+            <TextBlock
+                FontSize="13"
+                FontWeight="SemiBold"
+                Foreground="#60A5FA"
+                Text="AZURE KNOWLEDGE VISUALIZER" />
+            <TextBlock
+                FontSize="28"
+                FontWeight="Bold"
+                Foreground="#F8FAFF"
+                Text="Understand cloud architecture at a glance"
+                TextWrapping="Wrap" />
+          </StackPanel>
+          <StackPanel
+              Grid.Column="1"
+              Orientation="Horizontal"
+              Spacing="10">
+            <Button
+                AutomationProperties.AutomationId="BuildPowerPointButton"
+                Classes="primary"
+                Command="{Binding BuildPowerPointCommand}"
+                Content="Build PowerPoint"
+                IsVisible="{Binding HasPreview}" />
+            <Button
+                AutomationProperties.AutomationId="OpenPowerPointButton"
+                Classes="secondary"
+                Command="{Binding OpenPresentationCommand}"
+                Content="Open PowerPoint"
+                IsVisible="{Binding HasPresentation}" />
+            <Button
+                Classes="secondary"
+                Command="{Binding OpenExternalCommand}"
+                Content="Open in browser"
+                IsVisible="{Binding HasPreview}" />
+          </StackPanel>
+        </Grid>
+
+        <Border
+            Grid.Row="1"
+            Margin="0,14,0,0"
+            Padding="10,8"
+            Background="#10182C"
+            BorderBrush="#2A3A5F"
+            BorderThickness="1"
+            CornerRadius="10"
+            IsVisible="{Binding HasPresentation}">
+          <Grid ColumnDefinitions="Auto,*,Auto,Auto">
+            <TextBlock
+                VerticalAlignment="Center"
+                FontWeight="SemiBold"
+                Foreground="#AFC0DF"
+                Text="PowerPoint file" />
+            <TextBox
+                AutomationProperties.AutomationId="PowerPointFilePath"
+                Grid.Column="1"
+                Margin="12,0"
+                VerticalContentAlignment="Center"
+                Background="#0E162A"
+                BorderBrush="#33466F"
+                Foreground="#DCE7FF"
+                IsReadOnly="True"
+                Text="{Binding PresentationFilePath}" />
+            <Button
+                AutomationProperties.AutomationId="CopyPowerPointPathButton"
+                Grid.Column="2"
+                Margin="0,0,8,0"
+                Classes="secondary"
+                Command="{Binding CopyPresentationPathCommand}"
+                Content="Copy path" />
+            <Button
+                AutomationProperties.AutomationId="OpenPowerPointFolderButton"
+                Grid.Column="3"
+                Classes="secondary"
+                Command="{Binding OpenPresentationFolderCommand}"
+                Content="Open folder" />
+          </Grid>
+        </Border>
       </Grid>
 
       <Grid Grid.Row="1" Margin="0,24,0,22">
@@ -306,6 +366,13 @@
                 Command="{Binding GenerateCancelCommand}"
                 Content="Cancel"
                 IsVisible="{Binding IsGenerating}" />
+            <Button
+                Grid.Column="1"
+                Margin="10,0"
+                Classes="secondary"
+                Command="{Binding BuildPowerPointCancelCommand}"
+                Content="Cancel"
+                IsVisible="{Binding IsBuildingPresentation}" />
             <Button
                 AutomationProperties.AutomationId="GenerateButton"
                 Grid.Column="2"

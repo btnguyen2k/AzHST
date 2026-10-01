@@ -11,13 +11,18 @@ namespace AzHST.Desktop.ViewModels;
 public sealed partial class MainWindowViewModel : ObservableObject
 {
     private readonly GenerateVisualizationUseCase _generationUseCase;
+    private readonly GeneratePresentationUseCase _presentationUseCase;
     private readonly IGitHubAuthenticationService _authenticationService;
     private readonly ISettingsRepository _settingsRepository;
     private readonly IExternalBrowser _browser;
+    private readonly IExternalFileLauncher _fileLauncher;
+    private readonly IClipboardService _clipboardService;
     private readonly ISettingsDialogService _settingsDialogService;
     private readonly IGitHubLoginDialogService _loginDialogService;
     private readonly WebViewAvailability _webViewAvailability;
     private readonly bool _skipGitHubSignInAtStartup;
+    private VisualizationArtifact? _visualizationArtifact;
+    private string _generatedQuery = string.Empty;
     private bool _initialized;
 
     [ObservableProperty]
@@ -29,6 +34,9 @@ public sealed partial class MainWindowViewModel : ObservableObject
 
     [ObservableProperty]
     private bool _isGenerating;
+
+    [ObservableProperty]
+    private bool _isBuildingPresentation;
 
     [ObservableProperty]
     private bool _isAuthenticated;
@@ -54,23 +62,36 @@ public sealed partial class MainWindowViewModel : ObservableObject
     private string? _generatedFilePath;
 
     [ObservableProperty]
+    [NotifyPropertyChangedFor(nameof(HasPresentation))]
+    private Uri? _presentationUri;
+
+    [ObservableProperty]
+    private string? _presentationFilePath;
+
+    [ObservableProperty]
     [NotifyPropertyChangedFor(nameof(SettingsSummary))]
     private AppSettings _settings = new();
 
     public MainWindowViewModel(
         GenerateVisualizationUseCase generationUseCase,
+        GeneratePresentationUseCase presentationUseCase,
         IGitHubAuthenticationService authenticationService,
         ISettingsRepository settingsRepository,
         IExternalBrowser browser,
+        IExternalFileLauncher fileLauncher,
+        IClipboardService clipboardService,
         ISettingsDialogService settingsDialogService,
         IGitHubLoginDialogService loginDialogService,
         WebViewAvailability webViewAvailability,
         bool skipGitHubSignInAtStartup = false)
     {
         _generationUseCase = generationUseCase;
+        _presentationUseCase = presentationUseCase;
         _authenticationService = authenticationService;
         _settingsRepository = settingsRepository;
         _browser = browser;
+        _fileLauncher = fileLauncher;
+        _clipboardService = clipboardService;
         _settingsDialogService = settingsDialogService;
         _loginDialogService = loginDialogService;
         _webViewAvailability = webViewAvailability;
@@ -78,6 +99,8 @@ public sealed partial class MainWindowViewModel : ObservableObject
     }
 
     public bool HasPreview => PreviewUri is not null;
+
+    public bool HasPresentation => PresentationUri is not null;
 
     public bool HasEmbeddedPreview => HasPreview && _webViewAvailability.IsAvailable;
 
@@ -155,19 +178,25 @@ public sealed partial class MainWindowViewModel : ObservableObject
     {
         IsBusy = true;
         IsGenerating = true;
+        var submittedQuery = Query;
         var progress = new Progress<GenerationProgress>(
             update => StatusMessage = update.Message);
 
         try
         {
             var artifact = await _generationUseCase.ExecuteAsync(
-                Query,
+                submittedQuery,
                 Settings,
                 progress,
                 cancellationToken);
 
+            _visualizationArtifact = artifact;
+            _generatedQuery = submittedQuery.Trim();
             GeneratedFilePath = artifact.FilePath;
             PreviewUri = artifact.FileUri;
+            PresentationFilePath = null;
+            PresentationUri = null;
+            BuildPowerPointCommand.NotifyCanExecuteChanged();
 
             if (Settings.OpenResultsInExternalBrowser || !_webViewAvailability.IsAvailable)
             {
@@ -192,6 +221,57 @@ public sealed partial class MainWindowViewModel : ObservableObject
         finally
         {
             IsGenerating = false;
+            IsBusy = false;
+        }
+    }
+
+    private bool CanBuildPowerPoint()
+    {
+        return !IsBusy
+            && IsAuthenticated
+            && _visualizationArtifact is not null
+            && _generatedQuery.Length > 0;
+    }
+
+    [RelayCommand(CanExecute = nameof(CanBuildPowerPoint), IncludeCancelCommand = true)]
+    private async Task BuildPowerPointAsync(CancellationToken cancellationToken)
+    {
+        if (_visualizationArtifact is null || _generatedQuery.Length == 0)
+        {
+            return;
+        }
+
+        IsBusy = true;
+        IsBuildingPresentation = true;
+        var progress = new Progress<GenerationProgress>(
+            update => StatusMessage = update.Message);
+
+        try
+        {
+            var artifact = await _presentationUseCase.ExecuteAsync(
+                _generatedQuery,
+                _visualizationArtifact,
+                Settings,
+                progress,
+                cancellationToken);
+
+            PresentationFilePath = artifact.FilePath;
+            PresentationUri = artifact.FileUri;
+            StatusMessage =
+                $"PowerPoint ready with {artifact.SlideCount} slides. Copy its path or open its folder below.";
+        }
+        catch (OperationCanceledException)
+        {
+            StatusMessage = "PowerPoint generation cancelled.";
+        }
+        catch (Exception exception)
+        {
+            StatusMessage =
+                $"PowerPoint generation failed: {exception.Message}";
+        }
+        finally
+        {
+            IsBuildingPresentation = false;
             IsBusy = false;
         }
     }
@@ -281,6 +361,78 @@ public sealed partial class MainWindowViewModel : ObservableObject
         }
     }
 
+    private bool CanOpenPresentation()
+    {
+        return !IsBusy && PresentationUri is not null;
+    }
+
+    [RelayCommand(CanExecute = nameof(CanOpenPresentation))]
+    private void OpenPresentation()
+    {
+        if (PresentationUri is null)
+        {
+            return;
+        }
+
+        try
+        {
+            _fileLauncher.Open(PresentationUri);
+            StatusMessage =
+                "Opened the PowerPoint presentation in the default application.";
+        }
+        catch (Exception exception)
+        {
+            StatusMessage =
+                $"Could not open the PowerPoint presentation: {exception.Message}";
+        }
+    }
+
+    private bool CanUsePresentationFile()
+    {
+        return !IsBusy
+            && !string.IsNullOrWhiteSpace(PresentationFilePath);
+    }
+
+    [RelayCommand(CanExecute = nameof(CanUsePresentationFile))]
+    private async Task CopyPresentationPathAsync()
+    {
+        if (string.IsNullOrWhiteSpace(PresentationFilePath))
+        {
+            return;
+        }
+
+        try
+        {
+            await _clipboardService.SetTextAsync(PresentationFilePath);
+            StatusMessage = "Copied the PowerPoint file location.";
+        }
+        catch (Exception exception)
+        {
+            StatusMessage =
+                $"Could not copy the PowerPoint file location: {exception.Message}";
+        }
+    }
+
+    [RelayCommand(CanExecute = nameof(CanUsePresentationFile))]
+    private void OpenPresentationFolder()
+    {
+        if (string.IsNullOrWhiteSpace(PresentationFilePath))
+        {
+            return;
+        }
+
+        try
+        {
+            _fileLauncher.OpenContainingFolder(PresentationFilePath);
+            StatusMessage = "Opened the folder containing the PowerPoint presentation.";
+        }
+        catch (Exception exception)
+        {
+            StatusMessage =
+                $"Could not open the PowerPoint folder: {exception.Message}";
+        }
+    }
+
     [RelayCommand]
     private void UseExample(string prompt)
     {
@@ -297,17 +449,33 @@ public sealed partial class MainWindowViewModel : ObservableObject
         GenerateCommand.NotifyCanExecuteChanged();
         GitHubSignInCommand.NotifyCanExecuteChanged();
         OpenExternalCommand.NotifyCanExecuteChanged();
+        BuildPowerPointCommand.NotifyCanExecuteChanged();
+        OpenPresentationCommand.NotifyCanExecuteChanged();
+        CopyPresentationPathCommand.NotifyCanExecuteChanged();
+        OpenPresentationFolderCommand.NotifyCanExecuteChanged();
         OpenSettingsCommand.NotifyCanExecuteChanged();
     }
 
     partial void OnIsAuthenticatedChanged(bool value)
     {
         GenerateCommand.NotifyCanExecuteChanged();
+        BuildPowerPointCommand.NotifyCanExecuteChanged();
     }
 
     partial void OnPreviewUriChanged(Uri? value)
     {
         OpenExternalCommand.NotifyCanExecuteChanged();
+    }
+
+    partial void OnPresentationUriChanged(Uri? value)
+    {
+        OpenPresentationCommand.NotifyCanExecuteChanged();
+    }
+
+    partial void OnPresentationFilePathChanged(string? value)
+    {
+        CopyPresentationPathCommand.NotifyCanExecuteChanged();
+        OpenPresentationFolderCommand.NotifyCanExecuteChanged();
     }
 
     private void ApplyAuthenticationStatus(AuthenticationStatus status)

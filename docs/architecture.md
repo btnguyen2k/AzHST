@@ -13,6 +13,8 @@ AzHST answers Azure and Microsoft services questions with a visual artifact rath
 7. Validate and constrain the generated document.
 8. Save it as `generated\<id>\index.html`.
 9. Preview it in Avalonia's native WebView and optionally open it externally.
+10. Optionally generate a structured slide plan and build `presentation.pptx`
+    beside the HTML artifact.
 
 The design keeps model orchestration, operating-system integration, and UI concerns replaceable. The current implementation intentionally does not include conversation persistence, prompt history, Azure API access, retrieval-augmented generation, custom Copilot tools, or deployment packaging.
 
@@ -43,6 +45,8 @@ The dependency-free application layer contains:
 - `VisualizationArtifactIdGenerator`, which creates timestamp-and-slug IDs
 - `GeneratedHtmlDocumentProcessor`, which extracts and secures model output
 - `IAzureIconCatalog`, which exposes approved icon metadata and data URIs
+- `GeneratePresentationUseCase`, which validates slide plans and coordinates PPTX creation
+- presentation models and ports that contain no Open XML dependency
 
 This layer can be tested without Avalonia, GitHub Copilot, GitHub CLI, or a filesystem.
 
@@ -52,6 +56,7 @@ Infrastructure implements the application ports:
 
 - `CopilotVisualizationClient` owns the Copilot client and session lifecycle
 - `FileAzureIconCatalog` validates bundled SVGs, ranks query-relevant icons, and preserves their original bytes as data URIs
+- `OpenXmlPresentationBuilder` creates and validates editable 16:9 PPTX packages
 - `GitHubCliAuthenticationService` performs a non-interactive `gh` account check
 - `JsonSettingsRepository` performs atomic JSON settings writes
 - `FileGeneratedArtifactStore` atomically writes UTF-8 `index.html` files inside per-artifact directories
@@ -78,9 +83,11 @@ sequenceDiagram
     actor User
     participant VM as MainWindowViewModel
     participant UC as GenerateVisualizationUseCase
+    participant PUC as GeneratePresentationUseCase
     participant Copilot as CopilotVisualizationClient
     participant Icons as Azure icon catalog
     participant Policy as GeneratedHtmlDocumentProcessor
+    participant PPTX as OpenXmlPresentationBuilder
     participant Store as FileGeneratedArtifactStore
     participant View as NativeWebView / Browser
 
@@ -104,6 +111,15 @@ sequenceDiagram
         Store-->>UC: ID, directory, file path, and URI
         UC-->>VM: Visualization artifact
         VM->>View: Navigate and/or open
+        opt Build PowerPoint
+            VM->>PUC: Execute(question, visualization, settings)
+            PUC->>Copilot: CreatePresentationPlan(question, model, ID)
+            Copilot-->>PUC: Structured bounded slide plan
+            PUC->>PPTX: Build validated plan
+            PPTX-->>PUC: presentation.pptx artifact
+            PUC-->>VM: PowerPoint artifact
+            VM->>View: Show path; copy, reveal, or open presentation
+        end
     end
 ```
 
@@ -150,6 +166,29 @@ branding. Microsoft permits these icons in architecture diagrams, training
 materials, and documentation under the current
 [Azure Architecture Icons terms](https://learn.microsoft.com/azure/architecture/icons/).
 
+### PowerPoint output
+
+The application never asks the model to generate a binary file or
+PresentationML. `CopilotVisualizationClient` uses structured output to request
+a 3-10 slide plan containing bounded titles, summaries, bullets, visual nodes,
+connections, source names, and approved icon keys.
+
+`GeneratePresentationUseCase` validates every field, requires a visual slide,
+checks node IDs and connection endpoints, and rejects unavailable icon keys.
+`OpenXmlPresentationBuilder` then creates a 16:9 deck with:
+
+- an AzHST title slide
+- editable native text and shapes
+- directional connectors for architecture and process diagrams
+- original Azure SVG icon data embedded in the package
+- artifact ID, slide numbers, source names, and production-validation guidance
+
+The builder validates the completed package against the Office 2019 Open XML
+schema before atomically replacing
+`generated\<id>\presentation.pptx`. The deck contains no macros, external
+relationships, model-provided XML, or remote resources. Rebuilding replaces
+the existing deck and reports file-lock or persistence failures to the UI.
+
 ### Agent capabilities
 
 The Copilot client uses `CopilotClientMode.Empty` and supplies `AvailableTools = []`. It does not expose shell, file, GitHub MCP, custom-agent, skill, or user-elicitation tools. Host custom instructions and ambient Copilot CLI behavior are disabled by the SDK's empty-mode defaults.
@@ -162,7 +201,7 @@ Debug builds read two test-only environment overrides at the composition root. `
 
 ### Local files
 
-Settings are written through a temporary file and atomically replaced. Visualization IDs combine a padded hexadecimal Unix-millisecond timestamp with a sanitized slug, for example `0199abcdef12-azure-app-gateway`. The generated root defaults to `.\generated`; each ID receives its own directory and atomically written `index.html`. Unsafe IDs and accidental overwrites are rejected, and persistence failures are surfaced in the UI rather than represented as success.
+Settings are written through a temporary file and atomically replaced. Visualization IDs combine a padded hexadecimal Unix-millisecond timestamp with a sanitized slug, for example `0199abcdef12-azure-app-gateway`. The generated root defaults to `.\generated`; each ID receives its own directory with `index.html` and an optional `presentation.pptx`. Unsafe IDs and accidental HTML overwrites are rejected. PowerPoint rebuilds use an atomic temporary-file move, and persistence failures are surfaced in the UI rather than represented as success.
 
 ## Cross-platform WebView strategy
 
