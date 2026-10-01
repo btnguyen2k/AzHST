@@ -102,6 +102,7 @@ public sealed class JsonSettingsRepositoryTests : IDisposable
             dataDirectory,
             Path.Combine(dataDirectory, "settings.json"),
             Path.Combine(_testDirectory, "generated"),
-            Path.Combine(dataDirectory, "copilot"));
+            Path.Combine(dataDirectory, "copilot"),
+            Path.Combine(_testDirectory, "database", "azhst.db"));
     }
 }

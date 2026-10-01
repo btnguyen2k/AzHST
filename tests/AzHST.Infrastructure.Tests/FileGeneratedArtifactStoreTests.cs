@@ -18,6 +18,17 @@ public sealed class FileGeneratedArtifactStoreTests : IDisposable
     }
 
     [Fact]
+    public void CreateDefault_UsesDataDirectoryUnderWorkingDirectoryForDatabase()
+    {
+        var paths = ApplicationPaths.CreateDefault();
+
+        Assert.Equal(
+            Path.GetFullPath(
+                Path.Combine(Environment.CurrentDirectory, "data", "azhst.db")),
+            paths.SampleQueryDatabaseFile);
+    }
+
+    [Fact]
     public async Task SaveAsync_CreatesArtifactDirectoryAndIndexPage()
     {
         var generatedDirectory = Path.Combine(_testDirectory, "generated");
@@ -104,7 +115,8 @@ public sealed class FileGeneratedArtifactStoreTests : IDisposable
             _testDirectory,
             Path.Combine(_testDirectory, "settings.json"),
             generatedDirectory,
-            Path.Combine(_testDirectory, "copilot"));
+            Path.Combine(_testDirectory, "copilot"),
+            Path.Combine(_testDirectory, "data", "azhst.db"));
 
         return new FileGeneratedArtifactStore(paths);
     }

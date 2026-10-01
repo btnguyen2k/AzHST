@@ -22,6 +22,9 @@ This repository contains the first functional vertical slice. Authentication, co
 - Native WebView preview on Windows, macOS, and Linux
 - Automatic default-browser fallback and configurable browser launch
 - JSON settings stored in the user's local application data directory
+- SQLite-backed sample question catalog with six categories and ten questions per category
+- Four randomized home-page suggestions, refreshed whenever the home page opens
+- Weekly Copilot regeneration of sample questions with atomic database replacement
 
 ## Prerequisites
 
@@ -145,6 +148,25 @@ AzHST\
 ```
 
 Authentication tokens remain managed by GitHub CLI or the bundled Copilot runtime and are never written to `settings.json`.
+
+The sample question catalog is stored separately relative to the application's
+working directory:
+
+```text
+data\
+  azhst.db
+```
+
+At startup, AzHST checks the SQLite integrity, application identifier, schema
+version, required tables, foreign keys, and generation timestamp. An invalid
+or incompatible database is reset and reseeded with ten questions for each of
+the six supported visualization categories. The home page chooses four random
+categories and one random question from each category.
+
+When the stored question set reaches seven days old and GitHub authentication
+is available, Copilot generates a complete replacement set. AzHST validates
+all 60 questions before replacing the existing rows in one transaction. A
+failed refresh leaves the previous suggestions available for a later retry.
 
 ## Output themes
 

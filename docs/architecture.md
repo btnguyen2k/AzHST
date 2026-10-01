@@ -18,6 +18,11 @@ AzHST answers Azure and Microsoft services questions with a visual artifact rath
 
 The design keeps model orchestration, operating-system integration, and UI concerns replaceable. The current implementation intentionally does not include conversation persistence, prompt history, Azure API access, retrieval-augmented generation, custom Copilot tools, or deployment packaging.
 
+Application startup also validates a local SQLite sample-query catalog. The
+home page reads four randomized suggestions from distinct categories. A
+complete six-category, ten-query-per-category set is regenerated through
+Copilot when its stored timestamp reaches seven days old.
+
 ## System context
 
 ```mermaid
@@ -47,6 +52,8 @@ The dependency-free application layer contains:
 - `IAzureIconCatalog`, which exposes approved icon metadata and data URIs
 - typed output-theme definitions, selected theme settings, and `IOutputThemeCatalog`
 - `GeneratePresentationUseCase`, which validates slide plans and coordinates PPTX creation
+- `SampleQueryUseCase`, which seeds, validates, refreshes, and randomly selects home-page questions
+- `ISampleQueryRepository` and `ICopilotSampleQueryGenerator` ports
 - presentation models and ports that contain no Open XML dependency
 
 This layer can be tested without Avalonia, GitHub Copilot, GitHub CLI, or a filesystem.
@@ -61,6 +68,7 @@ Infrastructure implements the application ports:
 - `OpenXmlPresentationBuilder` creates and validates editable 16:9 PPTX packages
 - `GitHubCliAuthenticationService` performs a non-interactive `gh` account check
 - `JsonSettingsRepository` performs atomic JSON settings writes
+- `SqliteSampleQueryRepository` validates or resets `data\azhst.db`, then performs transactional sample-query replacement and random selection
 - `FileGeneratedArtifactStore` atomically writes UTF-8 `index.html` files inside per-artifact directories
 - `ExternalBrowserLauncher` delegates file URIs to the operating system
 - `ApplicationPaths` centralizes per-user storage locations
@@ -228,6 +236,19 @@ optional `presentation.pptx`. Unsafe IDs and accidental HTML overwrites are
 rejected. PowerPoint rebuilds use an atomic temporary-file move, and
 persistence failures are surfaced in the UI rather than represented as
 success.
+
+Home-page sample questions use `data\azhst.db` relative to the working
+directory. The SQLite file has an AzHST application identifier and schema
+version. Startup runs `quick_check`, validates required tables and foreign
+keys, and resets corrupt, non-SQLite, or incompatible files. Fresh databases
+are seeded with six categories and ten curated questions per category.
+
+The UI selects four categories at random and one question from each whenever
+Home is entered. Once `sample_queries_generated_utc` is seven days old,
+authenticated startup or Home navigation asks Copilot for a complete
+replacement set. The application validates exact category and count
+requirements and performs one transaction only after all 60 questions pass;
+generation failures preserve the old data and timestamp.
 
 ## Cross-platform WebView strategy
 

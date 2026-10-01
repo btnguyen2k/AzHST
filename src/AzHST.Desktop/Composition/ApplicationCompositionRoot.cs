@@ -32,6 +32,10 @@ internal static class ApplicationCompositionRoot
             artifactStore,
             artifactIdGenerator,
             themes);
+        var sampleQueryRepository = new SqliteSampleQueryRepository(paths);
+        var sampleQueryUseCase = new SampleQueryUseCase(
+            sampleQueryRepository,
+            copilotClient);
         var presentationBuilder = new OpenXmlPresentationBuilder(azureIcons);
         var presentationUseCase = new GeneratePresentationUseCase(
             copilotClient,
@@ -48,6 +52,7 @@ internal static class ApplicationCompositionRoot
         var viewModel = new MainWindowViewModel(
             generationUseCase,
             presentationUseCase,
+            sampleQueryUseCase,
             authenticationService,
             settingsRepository,
             themes,

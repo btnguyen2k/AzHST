@@ -1,3 +1,4 @@
+using System.Collections.ObjectModel;
 using AzHST.Application.Abstractions;
 using AzHST.Application.Exceptions;
 using AzHST.Application.Models;
@@ -13,6 +14,7 @@ public sealed partial class MainWindowViewModel : ObservableObject
 {
     private readonly GenerateVisualizationUseCase _generationUseCase;
     private readonly GeneratePresentationUseCase _presentationUseCase;
+    private readonly SampleQueryUseCase _sampleQueryUseCase;
     private readonly IGitHubAuthenticationService _authenticationService;
     private readonly ISettingsRepository _settingsRepository;
     private readonly IOutputThemeCatalog _themes;
@@ -25,6 +27,7 @@ public sealed partial class MainWindowViewModel : ObservableObject
     private readonly bool _skipGitHubSignInAtStartup;
     private VisualizationArtifact? _visualizationArtifact;
     private string _generatedQuery = string.Empty;
+    private bool _sampleQueryStoreInitialized;
     private bool _initialized;
 
     [ObservableProperty]
@@ -79,6 +82,7 @@ public sealed partial class MainWindowViewModel : ObservableObject
     public MainWindowViewModel(
         GenerateVisualizationUseCase generationUseCase,
         GeneratePresentationUseCase presentationUseCase,
+        SampleQueryUseCase sampleQueryUseCase,
         IGitHubAuthenticationService authenticationService,
         ISettingsRepository settingsRepository,
         IOutputThemeCatalog themes,
@@ -93,6 +97,7 @@ public sealed partial class MainWindowViewModel : ObservableObject
     {
         _generationUseCase = generationUseCase;
         _presentationUseCase = presentationUseCase;
+        _sampleQueryUseCase = sampleQueryUseCase;
         _authenticationService = authenticationService;
         _settingsRepository = settingsRepository;
         _themes = themes;
@@ -117,6 +122,8 @@ public sealed partial class MainWindowViewModel : ObservableObject
     public bool ShowWelcome => !HasPreview;
 
     public bool IsIdle => !IsBusy;
+
+    public ObservableCollection<SampleQueryOptionViewModel> SampleQueries { get; } = [];
 
     public Uri? EmbeddedPreviewUri =>
         _webViewAvailability.IsAvailable ? PreviewUri : null;
@@ -147,7 +154,28 @@ public sealed partial class MainWindowViewModel : ObservableObject
         _initialized = true;
         IsBusy = true;
         StatusMessage = "Loading configuration...";
-        var configurationLoaded = true;
+        string? configurationError = null;
+        string? authenticationError = null;
+        string? sampleQueryNotice = null;
+
+        try
+        {
+            StatusMessage = "Checking the local sample query database...";
+            var initialization = await _sampleQueryUseCase.InitializeAsync();
+            _sampleQueryStoreInitialized = true;
+            await LoadHomeSamplesAsync();
+
+            if (initialization.WasReset)
+            {
+                sampleQueryNotice =
+                    "The local sample query database was invalid and was reset.";
+            }
+        }
+        catch (Exception exception)
+        {
+            sampleQueryNotice =
+                $"Sample query database error: {exception.Message}";
+        }
 
         try
         {
@@ -155,8 +183,7 @@ public sealed partial class MainWindowViewModel : ObservableObject
         }
         catch (Exception exception)
         {
-            configurationLoaded = false;
-            StatusMessage = $"Configuration error: {exception.Message}";
+            configurationError = $"Configuration error: {exception.Message}";
         }
 
         try
@@ -168,20 +195,62 @@ public sealed partial class MainWindowViewModel : ObservableObject
                 : await _authenticationService.GetStatusAsync();
 
             ApplyAuthenticationStatus(authenticationStatus);
-            if (configurationLoaded)
+
+            if (IsAuthenticated && _sampleQueryStoreInitialized)
             {
-                StatusMessage = IsAuthenticated
-                    ? "Ready. Ask an Azure or Microsoft services question."
-                    : "Sign in with GitHub to enable visualization generation.";
+                try
+                {
+                    StatusMessage = "Checking whether sample questions need refreshing...";
+                    if (await _sampleQueryUseCase.RefreshIfStaleAsync())
+                    {
+                        await LoadHomeSamplesAsync();
+                    }
+                }
+                catch (Exception exception)
+                {
+                    sampleQueryNotice =
+                        $"Could not refresh sample questions; existing suggestions remain available. {exception.Message}";
+                }
             }
         }
         catch (Exception exception)
         {
             AuthenticationMessage = $"Authentication check failed: {exception.Message}";
+            authenticationError =
+                $"GitHub authentication check failed: {exception.Message}";
         }
         finally
         {
+            var readyStatus = IsAuthenticated
+                ? "Ready. Ask an Azure or Microsoft services question."
+                : "Sign in with GitHub to enable visualization generation.";
+            StatusMessage = AppendNotice(
+                configurationError ?? authenticationError ?? readyStatus,
+                sampleQueryNotice);
             IsBusy = false;
+        }
+    }
+
+    private static string AppendNotice(string message, string? notice)
+    {
+        return string.IsNullOrWhiteSpace(notice)
+            ? message
+            : $"{message} {notice}";
+    }
+
+    private async Task LoadHomeSamplesAsync(
+        CancellationToken cancellationToken = default)
+    {
+        var samples = await _sampleQueryUseCase.GetHomeSuggestionsAsync(
+            cancellationToken);
+        var options = samples
+            .Select(sample => new SampleQueryOptionViewModel(sample, UseExample))
+            .ToArray();
+
+        SampleQueries.Clear();
+        foreach (var option in options)
+        {
+            SampleQueries.Add(option);
         }
     }
 
@@ -334,9 +403,32 @@ public sealed partial class MainWindowViewModel : ObservableObject
             StatusMessage = "Checking GitHub CLI authentication...";
             var authenticationStatus = await _authenticationService.GetStatusAsync();
             ApplyAuthenticationStatus(authenticationStatus);
-            StatusMessage = authenticationStatus.IsAuthenticated
+            string? sampleQueryNotice = null;
+
+            if (authenticationStatus.IsAuthenticated
+                && _sampleQueryStoreInitialized)
+            {
+                try
+                {
+                    StatusMessage = "Checking whether sample questions need refreshing...";
+                    if (await _sampleQueryUseCase.RefreshIfStaleAsync())
+                    {
+                        await LoadHomeSamplesAsync();
+                    }
+                }
+                catch (Exception exception)
+                {
+                    sampleQueryNotice =
+                        $"Could not refresh sample questions; existing suggestions remain available. {exception.Message}";
+                }
+            }
+
+            var authenticationMessage = authenticationStatus.IsAuthenticated
                 ? "GitHub sign-in confirmed. Copilot is ready."
                 : authenticationStatus.Message;
+            StatusMessage = AppendNotice(
+                authenticationMessage,
+                sampleQueryNotice);
         }
         catch (Exception exception)
         {
@@ -367,6 +459,66 @@ public sealed partial class MainWindowViewModel : ObservableObject
         {
             StatusMessage = $"Could not save settings: {exception.Message}";
         }
+    }
+
+    private bool CanGoHome()
+    {
+        return !IsBusy && HasPreview;
+    }
+
+    [RelayCommand(CanExecute = nameof(CanGoHome))]
+    private async Task GoHomeAsync()
+    {
+        IsBusy = true;
+        ResetCurrentVisualization();
+        string? refreshNotice = null;
+
+        try
+        {
+            if (_sampleQueryStoreInitialized)
+            {
+                if (IsAuthenticated)
+                {
+                    try
+                    {
+                        StatusMessage =
+                            "Checking whether sample questions need refreshing...";
+                        await _sampleQueryUseCase.RefreshIfStaleAsync();
+                    }
+                    catch (Exception exception)
+                    {
+                        refreshNotice =
+                            $"Could not refresh sample questions; existing suggestions remain available. {exception.Message}";
+                    }
+                }
+
+                await LoadHomeSamplesAsync();
+            }
+
+            StatusMessage = AppendNotice(
+                "Home ready. Choose a sample or ask your own Azure question.",
+                refreshNotice);
+        }
+        catch (Exception exception)
+        {
+            StatusMessage =
+                $"Could not load sample questions: {exception.Message}";
+        }
+        finally
+        {
+            IsBusy = false;
+        }
+    }
+
+    private void ResetCurrentVisualization()
+    {
+        _visualizationArtifact = null;
+        _generatedQuery = string.Empty;
+        GeneratedFilePath = null;
+        PreviewUri = null;
+        PresentationFilePath = null;
+        PresentationUri = null;
+        BuildPowerPointCommand.NotifyCanExecuteChanged();
     }
 
     private bool CanOpenExternal()
@@ -486,6 +638,7 @@ public sealed partial class MainWindowViewModel : ObservableObject
         CopyPresentationPathCommand.NotifyCanExecuteChanged();
         OpenPresentationFolderCommand.NotifyCanExecuteChanged();
         OpenSettingsCommand.NotifyCanExecuteChanged();
+        GoHomeCommand.NotifyCanExecuteChanged();
     }
 
     partial void OnIsAuthenticatedChanged(bool value)
@@ -497,6 +650,7 @@ public sealed partial class MainWindowViewModel : ObservableObject
     partial void OnPreviewUriChanged(Uri? value)
     {
         OpenExternalCommand.NotifyCanExecuteChanged();
+        GoHomeCommand.NotifyCanExecuteChanged();
     }
 
     partial void OnPresentationUriChanged(Uri? value)
