@@ -94,6 +94,8 @@ public sealed class JsonSettingsRepository : ISettingsRepository
 
     private AppSettings Normalize(AppSettings settings)
     {
+        var themes = settings.Themes ?? new OutputThemeSettings();
+
         return settings with
         {
             Model = string.IsNullOrWhiteSpace(settings.Model)
@@ -102,6 +104,16 @@ public sealed class JsonSettingsRepository : ISettingsRepository
             OutputDirectory = string.IsNullOrWhiteSpace(settings.OutputDirectory)
                 ? _defaultOutputDirectory
                 : Path.GetFullPath(settings.OutputDirectory.Trim()),
+            Themes = themes with
+            {
+                HtmlThemeId = string.IsNullOrWhiteSpace(themes.HtmlThemeId)
+                    ? OutputThemeSettings.DefaultHtmlThemeId
+                    : themes.HtmlThemeId.Trim(),
+                PresentationThemeId =
+                    string.IsNullOrWhiteSpace(themes.PresentationThemeId)
+                        ? OutputThemeSettings.DefaultPresentationThemeId
+                        : themes.PresentationThemeId.Trim(),
+            },
         };
     }
 }

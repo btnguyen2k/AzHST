@@ -45,6 +45,7 @@ The dependency-free application layer contains:
 - `VisualizationArtifactIdGenerator`, which creates timestamp-and-slug IDs
 - `GeneratedHtmlDocumentProcessor`, which extracts and secures model output
 - `IAzureIconCatalog`, which exposes approved icon metadata and data URIs
+- typed output-theme definitions, selected theme settings, and `IOutputThemeCatalog`
 - `GeneratePresentationUseCase`, which validates slide plans and coordinates PPTX creation
 - presentation models and ports that contain no Open XML dependency
 
@@ -56,6 +57,7 @@ Infrastructure implements the application ports:
 
 - `CopilotVisualizationClient` owns the Copilot client and session lifecycle
 - `FileAzureIconCatalog` validates bundled SVGs, ranks query-relevant icons, and preserves their original bytes as data URIs
+- `FileOutputThemeCatalog` strictly loads and validates bundled HTML and presentation theme JSON
 - `OpenXmlPresentationBuilder` creates and validates editable 16:9 PPTX packages
 - `GitHubCliAuthenticationService` performs a non-interactive `gh` account check
 - `JsonSettingsRepository` performs atomic JSON settings writes
@@ -85,6 +87,7 @@ sequenceDiagram
     participant UC as GenerateVisualizationUseCase
     participant PUC as GeneratePresentationUseCase
     participant Copilot as CopilotVisualizationClient
+    participant Themes as Output theme catalog
     participant Icons as Azure icon catalog
     participant Policy as GeneratedHtmlDocumentProcessor
     participant PPTX as OpenXmlPresentationBuilder
@@ -99,11 +102,13 @@ sequenceDiagram
         UC-->>VM: Actionable validation message
     else Valid request
         UC->>UC: Create hex timestamp + slug ID
-        UC->>Copilot: GenerateHtml(question, model, ID)
+        UC->>Themes: Resolve selected HTML theme
+        Themes-->>UC: Typed HTML theme
+        UC->>Copilot: GenerateHtml(question, model, ID, theme)
         Copilot->>Icons: Find relevant approved icon keys
         Icons-->>Copilot: Small labeled catalog
         Copilot-->>UC: HTML document with optional icon placeholders
-        UC->>Policy: Extract and secure HTML
+        UC->>Policy: Extract, theme, and secure HTML
         Policy->>Icons: Resolve approved placeholders
         Icons-->>Policy: Original SVG data URIs
         Policy-->>UC: Constrained document
@@ -115,7 +120,9 @@ sequenceDiagram
             VM->>PUC: Execute(question, visualization, settings)
             PUC->>Copilot: CreatePresentationPlan(question, model, ID)
             Copilot-->>PUC: Structured bounded slide plan
-            PUC->>PPTX: Build validated plan
+            PUC->>Themes: Resolve selected presentation theme
+            Themes-->>PUC: Typed presentation theme
+            PUC->>PPTX: Build validated plan with theme
             PPTX-->>PUC: presentation.pptx artifact
             PUC-->>VM: PowerPoint artifact
             VM->>View: Show path; copy, reveal, or open presentation
@@ -139,6 +146,7 @@ Generated HTML is treated as untrusted input. The document processor:
 - accepts Azure icons only through known `<img data-azure-icon="...">` catalog keys
 - requires descriptive icon alt text and rejects model-supplied icon sources
 - replaces each approved placeholder with the original SVG bytes as a base64 `data:` image
+- removes model-provided theme markers and injects authoritative CSS variables for the selected HTML theme
 - rejects external or active `src` and `href` schemes
 - rejects remote CSS `url(...)` resources
 - removes `<base>` elements
@@ -188,6 +196,11 @@ schema before atomically replacing
 `generated\<id>\presentation.pptx`. The deck contains no macros, external
 relationships, model-provided XML, or remote resources. Rebuilding replaces
 the existing deck and reports file-lock or persistence failures to the UI.
+Presentation output uses its independently selected, validated theme. The
+default is a professional light theme optimized for projection, printing, and
+document sharing. Theme JSON supplies typed palette, typography, and
+appearance values; slide geometry and PresentationML remain deterministic
+application code.
 
 ### Agent capabilities
 
@@ -201,7 +214,20 @@ Debug builds read two test-only environment overrides at the composition root. `
 
 ### Local files
 
-Settings are written through a temporary file and atomically replaced. Visualization IDs combine a padded hexadecimal Unix-millisecond timestamp with a sanitized slug, for example `0199abcdef12-azure-app-gateway`. The generated root defaults to `.\generated`; each ID receives its own directory with `index.html` and an optional `presentation.pptx`. Unsafe IDs and accidental HTML overwrites are rejected. PowerPoint rebuilds use an atomic temporary-file move, and persistence failures are surfaced in the UI rather than represented as success.
+Settings are written through a temporary file and atomically replaced.
+Selected themes are persisted as stable IDs rather than copying theme
+definitions into user data. Bundled definitions are loaded from
+`resources\themes`; unknown properties, IDs, colors, enum values, ranges, and
+insufficient text contrast are rejected explicitly. Definitions use
+`schemaVersion` for parser compatibility and intentionally have no theme
+version. Visualization IDs combine a padded hexadecimal Unix-millisecond
+timestamp with a sanitized slug, for example
+`0199abcdef12-azure-app-gateway`. The generated root defaults to
+`.\generated`; each ID receives its own directory with `index.html` and an
+optional `presentation.pptx`. Unsafe IDs and accidental HTML overwrites are
+rejected. PowerPoint rebuilds use an atomic temporary-file move, and
+persistence failures are surfaced in the UI rather than represented as
+success.
 
 ## Cross-platform WebView strategy
 
@@ -222,8 +248,14 @@ Version one persists:
 | Model | `auto` | Let Copilot choose an available model |
 | Output directory | `.\generated` under the working directory | Store `<id>\index.html` visualization artifacts |
 | Open externally | `false` | Also launch each result in the default browser |
+| HTML theme | `azure-night` | Apply the Azure Night visual contract and authoritative CSS variables |
+| PowerPoint theme | `professional-light` | Apply the Professional Light palette, typography, and appearance |
 
 Model discovery is deliberately deferred. Free-text model configuration allows testing new Copilot models without releasing a new desktop build, while invalid model errors remain visible.
+
+The Settings dialog lists themes from `IOutputThemeCatalog` and persists only
+their IDs. Missing or blank theme IDs in legacy settings receive defaults.
+See `.dev.md` for the complete theme schema and extension process.
 
 ## Evolution path
 

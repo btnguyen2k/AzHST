@@ -14,6 +14,7 @@ public interface ICopilotVisualizationClient
         string query,
         string model,
         string visualizationId,
+        HtmlThemeDefinition theme,
         IProgress<GenerationProgress>? progress = null,
         CancellationToken cancellationToken = default);
 }

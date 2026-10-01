@@ -1,3 +1,4 @@
+using System.Globalization;
 using System.Net;
 using System.Text.RegularExpressions;
 using AzHST.Application.Abstractions;
@@ -23,7 +24,9 @@ public sealed partial class GeneratedHtmlDocumentProcessor
         _azureIcons = azureIcons ?? EmptyAzureIconCatalog.Instance;
     }
 
-    public string Process(string modelResponse)
+    public string Process(
+        string modelResponse,
+        HtmlThemeDefinition? theme = null)
     {
         if (string.IsNullOrWhiteSpace(modelResponse))
         {
@@ -62,9 +65,22 @@ public sealed partial class GeneratedHtmlDocumentProcessor
 
         html = ExistingContentSecurityPolicyRegex().Replace(html, string.Empty);
         html = BaseElementRegex().Replace(html, string.Empty);
+        if (theme is not null)
+        {
+            html = ApplyTheme(html, theme);
+        }
 
         var head = HeadElementRegex().Match(html);
-        return html.Insert(head.Index + head.Length, $"{Environment.NewLine}{SecurityMetadata}");
+        html = html.Insert(
+            head.Index + head.Length,
+            $"{Environment.NewLine}{SecurityMetadata}");
+        if (html.Length > MaximumDocumentLength)
+        {
+            throw new VisualizationGenerationException(
+                $"The generated page exceeds the {MaximumDocumentLength / (1024 * 1024)} MB safety limit after final processing.");
+        }
+
+        return html;
     }
 
     private static void ValidateExperienceContract(string html)
@@ -190,6 +206,95 @@ public sealed partial class GeneratedHtmlDocumentProcessor
         return html;
     }
 
+    private static string ApplyTheme(
+        string html,
+        HtmlThemeDefinition theme)
+    {
+        html = ExistingOutputThemeStyleRegex().Replace(html, string.Empty);
+
+        var htmlElement = HtmlElementRegex().Match(html);
+        var openingTag = DataThemeAttributeRegex().Replace(
+            htmlElement.Value,
+            string.Empty);
+        openingTag = openingTag.Insert(
+            openingTag.Length - 1,
+            $" data-azh-theme=\"{theme.Id}\"");
+        html = html
+            .Remove(htmlElement.Index, htmlElement.Length)
+            .Insert(htmlElement.Index, openingTag);
+
+        var closingHead = HeadClosingElementRegex().Match(html);
+        if (!closingHead.Success)
+        {
+            throw new VisualizationGenerationException(
+                "Copilot did not return a complete HTML head element.");
+        }
+
+        return html.Insert(
+            closingHead.Index,
+            $"{Environment.NewLine}{BuildThemeStyle(theme)}{Environment.NewLine}");
+    }
+
+    private static string BuildThemeStyle(HtmlThemeDefinition theme)
+    {
+        var palette = theme.Palette;
+        var typography = theme.Typography;
+        var appearance = theme.Appearance;
+        var motion = theme.Motion;
+        var colorScheme = appearance.ColorScheme == HtmlColorScheme.Dark
+            ? "dark"
+            : "light";
+        var lineHeight = typography.LineHeight.ToString(
+            "0.##",
+            CultureInfo.InvariantCulture);
+
+        return $$"""
+            <style id="azh-output-theme">
+              :root {
+                --azh-page: {{palette.Page}};
+                --azh-surface: {{palette.Surface}};
+                --azh-surface-raised: {{palette.SurfaceRaised}};
+                --azh-surface-selected: {{palette.SurfaceSelected}};
+                --azh-border: {{palette.Border}};
+                --azh-text: {{palette.Text}};
+                --azh-text-muted: {{palette.TextMuted}};
+                --azh-primary: {{palette.Primary}};
+                --azh-flow-active: {{palette.ActiveFlow}};
+                --azh-accent: {{palette.Accent}};
+                --azh-success: {{palette.Success}};
+                --azh-warning: {{palette.Warning}};
+                --azh-danger: {{palette.Danger}};
+                --azh-focus: {{palette.Focus}};
+                --azh-icon-tile: {{palette.IconTile}};
+                --azh-font-family: {{typography.FontFamily}};
+                --azh-base-size: {{typography.BaseSizePixels}}px;
+                --azh-line-height: {{lineHeight}};
+                --azh-corner-radius: {{appearance.CornerRadiusPixels}}px;
+                --azh-icon-tile-size: {{appearance.IconTileSizePixels}}px;
+                --azh-transition-duration: {{motion.TransitionDurationMilliseconds}}ms;
+                --azh-sequence-step-duration: {{motion.SequenceStepDurationMilliseconds}}ms;
+              }
+
+              html[data-azh-theme="{{theme.Id}}"] {
+                color-scheme: {{colorScheme}};
+                background: var(--azh-page);
+                font-size: var(--azh-base-size);
+              }
+
+              html[data-azh-theme="{{theme.Id}}"] body {
+                color: var(--azh-text);
+                background-color: var(--azh-page);
+                font-family: var(--azh-font-family);
+                line-height: var(--azh-line-height);
+              }
+
+              html[data-azh-theme="{{theme.Id}}"] :focus-visible {
+                outline-color: var(--azh-focus);
+              }
+            </style>
+            """;
+    }
+
     [GeneratedRegex(
         """```(?:html)?\s*(?<html>[\s\S]*?)\s*```""",
         RegexOptions.IgnoreCase | RegexOptions.CultureInvariant)]
@@ -204,6 +309,11 @@ public sealed partial class GeneratedHtmlDocumentProcessor
         """<head\b[^>]*>""",
         RegexOptions.IgnoreCase | RegexOptions.CultureInvariant)]
     private static partial Regex HeadElementRegex();
+
+    [GeneratedRegex(
+        """</head\s*>""",
+        RegexOptions.IgnoreCase | RegexOptions.CultureInvariant)]
+    private static partial Regex HeadClosingElementRegex();
 
     [GeneratedRegex(
         """<body\b[^>]*>""",
@@ -269,6 +379,16 @@ public sealed partial class GeneratedHtmlDocumentProcessor
         """<base\b[^>]*>""",
         RegexOptions.IgnoreCase | RegexOptions.CultureInvariant)]
     private static partial Regex BaseElementRegex();
+
+    [GeneratedRegex(
+        """\sdata-azh-theme\s*=\s*(?:"[^"]*"|'[^']*'|[^\s>]+)""",
+        RegexOptions.IgnoreCase | RegexOptions.CultureInvariant)]
+    private static partial Regex DataThemeAttributeRegex();
+
+    [GeneratedRegex(
+        """<style\b[^>]*\bid\s*=\s*(?:["']azh-output-theme["']|azh-output-theme\b)[^>]*>[\s\S]*?</style\s*>""",
+        RegexOptions.IgnoreCase | RegexOptions.CultureInvariant)]
+    private static partial Regex ExistingOutputThemeStyleRegex();
 
     private sealed class EmptyAzureIconCatalog : IAzureIconCatalog
     {

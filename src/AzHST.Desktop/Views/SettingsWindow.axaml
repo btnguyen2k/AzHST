@@ -2,11 +2,12 @@
     x:Class="AzHST.Desktop.Views.SettingsWindow"
     xmlns="https://github.com/avaloniaui"
     xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+    xmlns:models="using:AzHST.Application.Models"
     xmlns:vm="using:AzHST.Desktop.ViewModels"
     x:DataType="vm:SettingsWindowViewModel"
     Title="AzHST settings"
     Width="560"
-    Height="430"
+    Height="650"
     CanResize="False"
     Background="#0E162A"
     WindowStartupLocation="CenterOwner">
@@ -20,7 +21,7 @@
           Text="Configuration" />
       <TextBlock
           Foreground="#8FA4CB"
-          Text="Choose the Copilot model and how generated pages are opened." />
+          Text="Choose the Copilot model, output themes, and how generated pages are opened." />
     </StackPanel>
 
     <StackPanel Grid.Row="1" Margin="0,26,0,0" Spacing="10">
@@ -38,6 +39,36 @@
           Text="Use 'auto' to let GitHub Copilot choose an available model." />
 
       <TextBlock
+          FontWeight="SemiBold"
+          Foreground="#DCE7FF"
+          Text="HTML visualization theme" />
+      <ComboBox
+          ItemsSource="{Binding HtmlThemeOptions}"
+          SelectedItem="{Binding SelectedHtmlTheme, Mode=TwoWay}">
+        <ComboBox.ItemTemplate>
+          <DataTemplate x:DataType="models:OutputThemeOption">
+            <TextBlock Text="{Binding DisplayName}" />
+          </DataTemplate>
+        </ComboBox.ItemTemplate>
+      </ComboBox>
+
+      <TextBlock
+          Margin="0,6,0,0"
+          FontWeight="SemiBold"
+          Foreground="#DCE7FF"
+          Text="PowerPoint theme" />
+      <ComboBox
+          ItemsSource="{Binding PresentationThemeOptions}"
+          SelectedItem="{Binding SelectedPresentationTheme, Mode=TwoWay}">
+        <ComboBox.ItemTemplate>
+          <DataTemplate x:DataType="models:OutputThemeOption">
+            <TextBlock Text="{Binding DisplayName}" />
+          </DataTemplate>
+        </ComboBox.ItemTemplate>
+      </ComboBox>
+
+      <TextBlock
+          Margin="0,6,0,0"
           FontWeight="SemiBold"
           Foreground="#DCE7FF"
           Text="Generated pages root directory" />

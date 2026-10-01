@@ -67,6 +67,9 @@ public sealed class GenerateVisualizationUseCaseTests
         Assert.Equal("gpt-5", client.AssessmentModel);
         Assert.Equal("gpt-5", client.GenerationModel);
         Assert.Equal(expectedId, client.VisualizationId);
+        Assert.Equal(
+            OutputThemeSettings.DefaultHtmlThemeId,
+            client.HtmlTheme?.Id);
         Assert.Equal(expectedId, store.VisualizationId);
         Assert.Equal("generated", store.OutputDirectory);
         Assert.Contains("Content-Security-Policy", store.Html);
@@ -84,6 +87,29 @@ public sealed class GenerateVisualizationUseCaseTests
 
         Assert.Equal(AppSettings.DefaultModel, client.AssessmentModel);
         Assert.Equal(AppSettings.DefaultModel, client.GenerationModel);
+    }
+
+    [Fact]
+    public async Task ExecuteAsync_UsesSelectedHtmlTheme()
+    {
+        var client = CreateValidClient();
+        var themes = new StubOutputThemeCatalog("custom-night");
+        var useCase = CreateUseCase(
+            client,
+            new StubArtifactStore(),
+            themes);
+
+        await useCase.ExecuteAsync(
+            "Explain Azure Functions",
+            new AppSettings
+            {
+                Themes = new OutputThemeSettings
+                {
+                    HtmlThemeId = "custom-night",
+                },
+            });
+
+        Assert.Equal("custom-night", client.HtmlTheme?.Id);
     }
 
     [Fact]
@@ -153,13 +179,15 @@ public sealed class GenerateVisualizationUseCaseTests
 
     private static GenerateVisualizationUseCase CreateUseCase(
         StubCopilotClient client,
-        StubArtifactStore store)
+        StubArtifactStore store,
+        IOutputThemeCatalog? themes = null)
     {
         return new GenerateVisualizationUseCase(
             client,
             new GeneratedHtmlDocumentProcessor(),
             store,
-            new VisualizationArtifactIdGenerator(new FixedTimeProvider(FixedTime)));
+            new VisualizationArtifactIdGenerator(new FixedTimeProvider(FixedTime)),
+            themes ?? new StubOutputThemeCatalog());
     }
 
     private static StubCopilotClient CreateValidClient()
@@ -190,6 +218,8 @@ public sealed class GenerateVisualizationUseCaseTests
 
         public string? VisualizationId { get; private set; }
 
+        public HtmlThemeDefinition? HtmlTheme { get; private set; }
+
         public Task<VisualizationQueryAssessment> AssessQueryAsync(
             string query,
             string model,
@@ -206,6 +236,7 @@ public sealed class GenerateVisualizationUseCaseTests
             string query,
             string model,
             string visualizationId,
+            HtmlThemeDefinition theme,
             IProgress<GenerationProgress>? progress = null,
             CancellationToken cancellationToken = default)
         {
@@ -213,7 +244,51 @@ public sealed class GenerateVisualizationUseCaseTests
             GenerationQuery = query;
             GenerationModel = model;
             VisualizationId = visualizationId;
+            HtmlTheme = theme;
             return Task.FromResult(response);
+        }
+    }
+
+    private sealed class StubOutputThemeCatalog : IOutputThemeCatalog
+    {
+        private readonly HtmlThemeDefinition _htmlTheme;
+        private readonly PresentationThemeDefinition _presentationTheme =
+            new()
+            {
+                SchemaVersion = 1,
+                Id = OutputThemeSettings.DefaultPresentationThemeId,
+                DisplayName = "Professional Light",
+            };
+
+        public StubOutputThemeCatalog(
+            string htmlThemeId = OutputThemeSettings.DefaultHtmlThemeId)
+        {
+            _htmlTheme = CreateHtmlTheme(htmlThemeId);
+            HtmlThemes =
+            [
+                new(htmlThemeId, "HTML theme"),
+            ];
+        }
+
+        public IReadOnlyList<OutputThemeOption> HtmlThemes { get; }
+
+        public IReadOnlyList<OutputThemeOption> PresentationThemes { get; } =
+        [
+            new(
+                OutputThemeSettings.DefaultPresentationThemeId,
+                "Professional Light"),
+        ];
+
+        public HtmlThemeDefinition GetHtmlTheme(string id)
+        {
+            Assert.Equal(_htmlTheme.Id, id);
+            return _htmlTheme;
+        }
+
+        public PresentationThemeDefinition GetPresentationTheme(string id)
+        {
+            Assert.Equal(_presentationTheme.Id, id);
+            return _presentationTheme;
         }
     }
 
@@ -254,5 +329,55 @@ public sealed class GenerateVisualizationUseCaseTests
         {
             return utcNow;
         }
+    }
+
+    private static HtmlThemeDefinition CreateHtmlTheme(
+        string id = OutputThemeSettings.DefaultHtmlThemeId)
+    {
+        return new HtmlThemeDefinition
+        {
+            SchemaVersion = 1,
+            Id = id,
+            DisplayName = "Azure Night",
+            Palette = new HtmlThemePalette
+            {
+                Page = "#071426",
+                Surface = "#0D1B2A",
+                SurfaceRaised = "#12263D",
+                SurfaceSelected = "#173554",
+                Border = "#29415F",
+                Text = "#F3F7FC",
+                TextMuted = "#A9B8CC",
+                Primary = "#4CA6FF",
+                ActiveFlow = "#22D3EE",
+                Accent = "#7DD3FC",
+                Success = "#34D399",
+                Warning = "#FBBF24",
+                Danger = "#FB7185",
+                Focus = "#93C5FD",
+                IconTile = "#EAF4FC",
+            },
+            Typography = new HtmlThemeTypography
+            {
+                FontFamily = "Inter, Segoe UI, sans-serif",
+                BaseSizePixels = 16,
+                LineHeight = 1.5,
+            },
+            Appearance = new HtmlThemeAppearance
+            {
+                ColorScheme = HtmlColorScheme.Dark,
+                SurfaceStyle = HtmlSurfaceStyle.Layered,
+                CornerRadiusPixels = 14,
+                IconTileSizePixels = 44,
+                AllowPureBlack = false,
+                AllowGlassmorphism = false,
+            },
+            Motion = new HtmlThemeMotion
+            {
+                TransitionDurationMilliseconds = 220,
+                SequenceStepDurationMilliseconds = 650,
+                AllowContinuousDecorativeMotion = false,
+            },
+        };
     }
 }

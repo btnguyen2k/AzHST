@@ -116,7 +116,10 @@ public sealed partial class MainWindowViewModel : ObservableObject
     public string WebViewAvailabilityMessage => _webViewAvailability.Message;
 
     public string SettingsSummary =>
-        $"{Settings.Model} | {(Settings.OpenResultsInExternalBrowser ? "Browser + preview" : "Embedded preview")}";
+        $"{Settings.Model} | "
+        + $"{(Settings.OpenResultsInExternalBrowser ? "Browser + preview" : "Embedded preview")} | "
+        + $"HTML: {Settings.Themes.HtmlThemeId} | "
+        + $"PPTX: {Settings.Themes.PresentationThemeId}";
 
     public async Task InitializeAsync()
     {

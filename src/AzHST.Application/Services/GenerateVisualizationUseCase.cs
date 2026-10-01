@@ -12,17 +12,20 @@ public sealed class GenerateVisualizationUseCase
     private readonly GeneratedHtmlDocumentProcessor _documentProcessor;
     private readonly IGeneratedArtifactStore _artifactStore;
     private readonly VisualizationArtifactIdGenerator _artifactIdGenerator;
+    private readonly IOutputThemeCatalog _themes;
 
     public GenerateVisualizationUseCase(
         ICopilotVisualizationClient copilotClient,
         GeneratedHtmlDocumentProcessor documentProcessor,
         IGeneratedArtifactStore artifactStore,
-        VisualizationArtifactIdGenerator artifactIdGenerator)
+        VisualizationArtifactIdGenerator artifactIdGenerator,
+        IOutputThemeCatalog themes)
     {
         _copilotClient = copilotClient;
         _documentProcessor = documentProcessor;
         _artifactStore = artifactStore;
         _artifactIdGenerator = artifactIdGenerator;
+        _themes = themes;
     }
 
     public async Task<VisualizationArtifact> ExecuteAsync(
@@ -64,11 +67,13 @@ public sealed class GenerateVisualizationUseCase
         var visualizationId = _artifactIdGenerator.Create(
             assessment.SuggestedSlug,
             normalizedQuery);
+        var theme = _themes.GetHtmlTheme(settings.Themes.HtmlThemeId);
 
         var rawResponse = await _copilotClient.GenerateHtmlAsync(
             normalizedQuery,
             model,
             visualizationId,
+            theme,
             progress,
             cancellationToken);
 
@@ -76,7 +81,7 @@ public sealed class GenerateVisualizationUseCase
             GenerationStage.Securing,
             "Validating and securing the generated page..."));
 
-        var securedHtml = _documentProcessor.Process(rawResponse);
+        var securedHtml = _documentProcessor.Process(rawResponse, theme);
 
         progress?.Report(new GenerationProgress(
             GenerationStage.Saving,

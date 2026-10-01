@@ -30,15 +30,18 @@ public sealed partial class GeneratePresentationUseCase
     private readonly ICopilotPresentationPlanner _planner;
     private readonly IPresentationBuilder _builder;
     private readonly IAzureIconCatalog _azureIcons;
+    private readonly IOutputThemeCatalog _themes;
 
     public GeneratePresentationUseCase(
         ICopilotPresentationPlanner planner,
         IPresentationBuilder builder,
-        IAzureIconCatalog azureIcons)
+        IAzureIconCatalog azureIcons,
+        IOutputThemeCatalog themes)
     {
         _planner = planner;
         _builder = builder;
         _azureIcons = azureIcons;
+        _themes = themes;
     }
 
     public async Task<PresentationArtifact> ExecuteAsync(
@@ -74,6 +77,8 @@ public sealed partial class GeneratePresentationUseCase
         var model = string.IsNullOrWhiteSpace(settings.Model)
             ? AppSettings.DefaultModel
             : settings.Model.Trim();
+        var theme = _themes.GetPresentationTheme(
+            settings.Themes.PresentationThemeId);
 
         var rawPlan = await _planner.CreatePresentationPlanAsync(
             normalizedQuery,
@@ -90,6 +95,7 @@ public sealed partial class GeneratePresentationUseCase
         var artifact = await _builder.BuildAsync(
             plan,
             visualization,
+            theme,
             cancellationToken);
 
         progress?.Report(new GenerationProgress(

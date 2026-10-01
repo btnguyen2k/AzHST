@@ -1,0 +1,41 @@
+{
+  "schemaVersion": 1,
+  "id": "professional-light",
+  "displayName": "Professional Light",
+  "palette": {
+    "canvas": "#F4F7FB",
+    "surface": "#FFFFFF",
+    "summarySurface": "#EAF4FC",
+    "title": "#0F2744",
+    "text": "#172033",
+    "textMuted": "#526176",
+    "border": "#CBD6E2",
+    "primary": "#0078D4",
+    "accent": "#009FDA",
+    "iconTile": "#F8FAFC",
+    "success": "#14B8A6",
+    "warning": "#F59E0B",
+    "comparison": "#8B5CF6",
+    "danger": "#EF4444",
+    "hyperlink": "#0563C1",
+    "followedHyperlink": "#954F72"
+  },
+  "typography": {
+    "fontFamily": "Aptos",
+    "displayFontFamily": "Aptos Display",
+    "titleSizePoints": 32,
+    "subtitleSizePoints": 17,
+    "slideTitleSizePoints": 20,
+    "summarySizePoints": 15,
+    "bodySizePoints": 16,
+    "nodeLabelSizePoints": 11,
+    "nodeDetailSizePoints": 8,
+    "connectionLabelSizePoints": 7,
+    "footerSizePoints": 7
+  },
+  "appearance": {
+    "roundedCards": true,
+    "showHeaderRule": true,
+    "iconTreatment": "lightTile"
+  }
+}

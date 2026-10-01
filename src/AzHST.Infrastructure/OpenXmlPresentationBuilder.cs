@@ -15,17 +15,6 @@ public sealed class OpenXmlPresentationBuilder : IPresentationBuilder
     private const long SlideHeight = 6_858_000;
     private const long EmusPerInch = 914_400;
 
-    private const string Navy = "0B1020";
-    private const string NavyLight = "17213B";
-    private const string AzureBlue = "2563EB";
-    private const string Cyan = "0EA5E9";
-    private const string PaleBlue = "E8F1FF";
-    private const string Slate = "334155";
-    private const string SlateLight = "64748B";
-    private const string Border = "CBD5E1";
-    private const string Canvas = "F8FAFC";
-    private const string White = "FFFFFF";
-
     private readonly IAzureIconCatalog _azureIcons;
 
     public OpenXmlPresentationBuilder(IAzureIconCatalog azureIcons)
@@ -36,19 +25,23 @@ public sealed class OpenXmlPresentationBuilder : IPresentationBuilder
     public Task<PresentationArtifact> BuildAsync(
         PresentationPlan plan,
         VisualizationArtifact visualization,
+        PresentationThemeDefinition theme,
         CancellationToken cancellationToken = default)
     {
         ArgumentNullException.ThrowIfNull(plan);
         ArgumentNullException.ThrowIfNull(visualization);
+        ArgumentNullException.ThrowIfNull(theme);
+        var renderTheme = PresentationRenderTheme.Create(theme);
 
         return Task.Run(
-            () => Build(plan, visualization, cancellationToken),
+            () => Build(plan, visualization, renderTheme, cancellationToken),
             cancellationToken);
     }
 
     private PresentationArtifact Build(
         PresentationPlan plan,
         VisualizationArtifact visualization,
+        PresentationRenderTheme theme,
         CancellationToken cancellationToken)
     {
         cancellationToken.ThrowIfCancellationRequested();
@@ -67,6 +60,7 @@ public sealed class OpenXmlPresentationBuilder : IPresentationBuilder
                 temporaryFilePath,
                 plan,
                 visualization.Id,
+                theme,
                 cancellationToken);
             ValidatePresentation(temporaryFilePath);
             cancellationToken.ThrowIfCancellationRequested();
@@ -105,13 +99,16 @@ public sealed class OpenXmlPresentationBuilder : IPresentationBuilder
         string filePath,
         PresentationPlan plan,
         string visualizationId,
+        PresentationRenderTheme theme,
         CancellationToken cancellationToken)
     {
         using var document = PresentationDocument.Create(
             filePath,
             PresentationDocumentType.Presentation);
         var presentationPart = document.AddPresentationPart();
-        var slideLayoutPart = CreatePresentationParts(presentationPart);
+        var slideLayoutPart = CreatePresentationParts(
+            presentationPart,
+            theme);
         var presentation = presentationPart.Presentation
             ?? throw new PresentationGenerationException(
                 "The PowerPoint presentation did not initialize.");
@@ -129,7 +126,8 @@ public sealed class OpenXmlPresentationBuilder : IPresentationBuilder
                 slidePart,
                 plan.Title,
                 plan.Subtitle,
-                visualizationId));
+                visualizationId,
+                theme));
 
         for (var index = 0; index < plan.Slides.Count; index++)
         {
@@ -147,14 +145,16 @@ public sealed class OpenXmlPresentationBuilder : IPresentationBuilder
                     slidePlan,
                     visualizationId,
                     slideNumber,
-                    plan.Slides.Count + 1));
+                    plan.Slides.Count + 1,
+                    theme));
         }
 
         presentationPart.Presentation.Save();
     }
 
     private static SlideLayoutPart CreatePresentationParts(
-        PresentationPart presentationPart)
+        PresentationPart presentationPart,
+        PresentationRenderTheme theme)
     {
         var slideMasterPart = presentationPart.AddNewPart<SlideMasterPart>();
         var slideLayoutPart = slideMasterPart.AddNewPart<SlideLayoutPart>();
@@ -191,7 +191,7 @@ public sealed class OpenXmlPresentationBuilder : IPresentationBuilder
                 new P.BodyStyle(),
                 new P.OtherStyle()));
 
-        themePart.Theme = CreateTheme();
+        themePart.Theme = CreateTheme(theme);
 
         var slideMasterRelationshipId =
             presentationPart.GetIdOfPart(slideMasterPart);
@@ -248,7 +248,8 @@ public sealed class OpenXmlPresentationBuilder : IPresentationBuilder
         SlidePart slidePart,
         string title,
         string subtitle,
-        string visualizationId)
+        string visualizationId,
+        PresentationRenderTheme theme)
     {
         var shapeTree = CreateShapeTree();
         uint shapeId = 1;
@@ -260,8 +261,8 @@ public sealed class OpenXmlPresentationBuilder : IPresentationBuilder
             0,
             SlideWidth,
             SlideHeight,
-            Navy,
-            Navy,
+            theme.Canvas,
+            theme.Canvas,
             cornerRadius: false);
         AddRectangle(
             shapeTree,
@@ -270,30 +271,40 @@ public sealed class OpenXmlPresentationBuilder : IPresentationBuilder
             Emu(1.08),
             Emu(1.15),
             Emu(0.09),
-            Cyan,
-            Cyan,
+            theme.Primary,
+            theme.Primary,
             cornerRadius: false);
         AddTextBox(
             shapeTree,
             ref shapeId,
+            theme,
             Emu(0.8),
             Emu(1.45),
             Emu(11.7),
             Emu(1.55),
-            [new TextParagraph(title, 3_200, White, true)],
+            [
+                new TextParagraph(
+                    title,
+                    theme.TitleSize,
+                    theme.Title,
+                    true,
+                    UseDisplayFont: true),
+            ],
             A.TextAnchoringTypeValues.Center);
         AddTextBox(
             shapeTree,
             ref shapeId,
+            theme,
             Emu(0.82),
             Emu(3.15),
             Emu(10.7),
             Emu(1.0),
-            [new TextParagraph(subtitle, 1_650, "C7D7F5", false)],
+            [new TextParagraph(subtitle, theme.SubtitleSize, theme.Text, false)],
             A.TextAnchoringTypeValues.Top);
         AddTextBox(
             shapeTree,
             ref shapeId,
+            theme,
             Emu(0.82),
             Emu(6.72),
             Emu(11.6),
@@ -301,8 +312,8 @@ public sealed class OpenXmlPresentationBuilder : IPresentationBuilder
             [
                 new TextParagraph(
                     $"Generated by AzHST  |  {visualizationId}",
-                    850,
-                    "8294B8",
+                    theme.FooterSize,
+                    theme.TextMuted,
                     false),
             ],
             A.TextAnchoringTypeValues.Center);
@@ -315,7 +326,8 @@ public sealed class OpenXmlPresentationBuilder : IPresentationBuilder
         PresentationSlidePlan plan,
         string visualizationId,
         int slideNumber,
-        int totalSlides)
+        int totalSlides,
+        PresentationRenderTheme theme)
     {
         var shapeTree = CreateShapeTree();
         uint shapeId = 1;
@@ -327,8 +339,8 @@ public sealed class OpenXmlPresentationBuilder : IPresentationBuilder
             0,
             SlideWidth,
             SlideHeight,
-            Canvas,
-            Canvas,
+            theme.Canvas,
+            theme.Canvas,
             cornerRadius: false);
         AddRectangle(
             shapeTree,
@@ -337,26 +349,53 @@ public sealed class OpenXmlPresentationBuilder : IPresentationBuilder
             0,
             SlideWidth,
             Emu(0.92),
-            Navy,
-            Navy,
+            theme.Surface,
+            theme.Surface,
             cornerRadius: false);
+        if (theme.ShowHeaderRule)
+        {
+            AddRectangle(
+                shapeTree,
+                ref shapeId,
+                0,
+                Emu(0.88),
+                SlideWidth,
+                Emu(0.04),
+                theme.Primary,
+                theme.Primary,
+                cornerRadius: false);
+        }
+
         AddTextBox(
             shapeTree,
             ref shapeId,
+            theme,
             Emu(0.62),
             Emu(0.16),
             Emu(11.6),
             Emu(0.54),
-            [new TextParagraph(plan.Title, 2_000, White, true)],
+            [
+                new TextParagraph(
+                    plan.Title,
+                    theme.SlideTitleSize,
+                    theme.Title,
+                    true,
+                    UseDisplayFont: true),
+            ],
             A.TextAnchoringTypeValues.Center);
 
         if (plan.Kind is "diagram" or "comparison")
         {
-            BuildVisualSlide(slidePart, shapeTree, ref shapeId, plan);
+            BuildVisualSlide(
+                slidePart,
+                shapeTree,
+                ref shapeId,
+                plan,
+                theme);
         }
         else
         {
-            BuildTextSlide(shapeTree, ref shapeId, plan);
+            BuildTextSlide(shapeTree, ref shapeId, plan, theme);
         }
 
         AddFooter(
@@ -365,7 +404,8 @@ public sealed class OpenXmlPresentationBuilder : IPresentationBuilder
             plan.Sources,
             visualizationId,
             slideNumber,
-            totalSlides);
+            totalSlides,
+            theme);
 
         slidePart.Slide = CreateSlide(shapeTree);
     }
@@ -373,36 +413,45 @@ public sealed class OpenXmlPresentationBuilder : IPresentationBuilder
     private static void BuildTextSlide(
         P.ShapeTree shapeTree,
         ref uint shapeId,
-        PresentationSlidePlan plan)
+        PresentationSlidePlan plan,
+        PresentationRenderTheme theme)
     {
         if (plan.Summary.Length > 0)
         {
             AddTextBox(
                 shapeTree,
                 ref shapeId,
+                theme,
                 Emu(0.75),
                 Emu(1.25),
                 Emu(11.8),
                 Emu(0.9),
-                [new TextParagraph(plan.Summary, 1_500, Slate, false)],
+                [
+                    new TextParagraph(
+                        plan.Summary,
+                        theme.SummarySize,
+                        theme.Text,
+                        false),
+                ],
                 A.TextAnchoringTypeValues.Center,
-                PaleBlue,
-                "B8D4FF",
-                cornerRadius: true);
+                theme.SummarySurface,
+                theme.Border,
+                cornerRadius: theme.RoundedCards);
         }
 
         var bulletTop = plan.Summary.Length > 0 ? 2.38 : 1.35;
         var paragraphs = plan.Bullets
             .Select(bullet => new TextParagraph(
                 $"•  {bullet}",
-                1_650,
-                Slate,
+                theme.BodySize,
+                theme.Text,
                 false))
             .ToArray();
 
         AddTextBox(
             shapeTree,
             ref shapeId,
+            theme,
             Emu(0.95),
             Emu(bulletTop),
             Emu(11.25),
@@ -415,18 +464,26 @@ public sealed class OpenXmlPresentationBuilder : IPresentationBuilder
         SlidePart slidePart,
         P.ShapeTree shapeTree,
         ref uint shapeId,
-        PresentationSlidePlan plan)
+        PresentationSlidePlan plan,
+        PresentationRenderTheme theme)
     {
         if (plan.Summary.Length > 0)
         {
             AddTextBox(
                 shapeTree,
                 ref shapeId,
+                theme,
                 Emu(0.72),
                 Emu(1.08),
                 Emu(11.9),
                 Emu(0.58),
-                [new TextParagraph(plan.Summary, 1_150, SlateLight, false)],
+                [
+                    new TextParagraph(
+                        plan.Summary,
+                        Math.Min(theme.SummarySize, 1_200),
+                        theme.TextMuted,
+                        false),
+                ],
                 A.TextAnchoringTypeValues.Center);
         }
 
@@ -450,7 +507,8 @@ public sealed class OpenXmlPresentationBuilder : IPresentationBuilder
                     ref shapeId,
                     positionsById[connection.From],
                     positionsById[connection.To],
-                    connection.Label);
+                    connection.Label,
+                    theme);
             }
         }
 
@@ -464,7 +522,8 @@ public sealed class OpenXmlPresentationBuilder : IPresentationBuilder
                 plan.Nodes[index],
                 positions[index],
                 imageRelationships,
-                plan.Kind == "comparison");
+                plan.Kind == "comparison",
+                theme);
         }
     }
 
@@ -475,7 +534,8 @@ public sealed class OpenXmlPresentationBuilder : IPresentationBuilder
         PresentationNodePlan node,
         SlideRect position,
         Dictionary<string, string> imageRelationships,
-        bool comparison)
+        bool comparison,
+        PresentationRenderTheme theme)
     {
         AddRectangle(
             shapeTree,
@@ -484,9 +544,9 @@ public sealed class OpenXmlPresentationBuilder : IPresentationBuilder
             position.Y,
             position.Width,
             position.Height,
-            White,
-            comparison ? Cyan : AzureBlue,
-            cornerRadius: true);
+            theme.Surface,
+            comparison ? theme.Comparison : theme.Primary,
+            cornerRadius: theme.RoundedCards);
 
         var hasIcon = node.IconKey.Length > 0;
         if (hasIcon)
@@ -496,26 +556,52 @@ public sealed class OpenXmlPresentationBuilder : IPresentationBuilder
                 node.IconKey,
                 imageRelationships);
             var iconSize = Math.Min(Emu(0.48), position.Height / 3);
+            var iconX = position.X + ((position.Width - iconSize) / 2);
+            var iconY = position.Y + Emu(0.16);
+            if (theme.ShowIconTile)
+            {
+                var tilePadding = Emu(0.06);
+                AddRectangle(
+                    shapeTree,
+                    ref shapeId,
+                    iconX - tilePadding,
+                    iconY - tilePadding,
+                    iconSize + (tilePadding * 2),
+                    iconSize + (tilePadding * 2),
+                    theme.IconTile,
+                    theme.IconTile,
+                    cornerRadius: theme.RoundedCards);
+            }
+
             AddPicture(
                 shapeTree,
                 ref shapeId,
                 relationshipId,
                 node.Label,
-                position.X + ((position.Width - iconSize) / 2),
-                position.Y + Emu(0.16),
+                iconX,
+                iconY,
                 iconSize,
                 iconSize);
         }
 
-        var labelTop = position.Y + (hasIcon ? Emu(0.68) : Emu(0.2));
+        var labelTop = position.Y + (hasIcon
+            ? Emu(theme.ShowIconTile ? 0.72 : 0.68)
+            : Emu(0.2));
         AddTextBox(
             shapeTree,
             ref shapeId,
+            theme,
             position.X + Emu(0.12),
             labelTop,
             position.Width - Emu(0.24),
             Emu(0.48),
-            [new TextParagraph(node.Label, 1_080, Slate, true)],
+            [
+                new TextParagraph(
+                    node.Label,
+                    theme.NodeLabelSize,
+                    theme.Text,
+                    true),
+            ],
             A.TextAnchoringTypeValues.Center,
             horizontalAlignment: A.TextAlignmentTypeValues.Center);
 
@@ -524,11 +610,18 @@ public sealed class OpenXmlPresentationBuilder : IPresentationBuilder
             AddTextBox(
                 shapeTree,
                 ref shapeId,
+                theme,
                 position.X + Emu(0.14),
                 labelTop + Emu(0.48),
                 position.Width - Emu(0.28),
                 position.Height - (labelTop - position.Y) - Emu(0.55),
-                [new TextParagraph(node.Detail, 780, SlateLight, false)],
+                [
+                    new TextParagraph(
+                        node.Detail,
+                        theme.NodeDetailSize,
+                        theme.TextMuted,
+                        false),
+                ],
                 A.TextAnchoringTypeValues.Top,
                 horizontalAlignment: A.TextAlignmentTypeValues.Center);
         }
@@ -600,12 +693,17 @@ public sealed class OpenXmlPresentationBuilder : IPresentationBuilder
         ref uint shapeId,
         SlideRect from,
         SlideRect to,
-        string label)
+        string label,
+        PresentationRenderTheme theme)
     {
-        var startX = from.CenterX;
-        var startY = from.CenterY;
-        var endX = to.CenterX;
-        var endY = to.CenterY;
+        var deltaX = to.CenterX - from.CenterX;
+        var deltaY = to.CenterY - from.CenterY;
+        var fromScale = CalculateBoundaryScale(from, deltaX, deltaY);
+        var toScale = CalculateBoundaryScale(to, deltaX, deltaY);
+        var startX = from.CenterX + (long)Math.Round(deltaX * fromScale);
+        var startY = from.CenterY + (long)Math.Round(deltaY * fromScale);
+        var endX = to.CenterX - (long)Math.Round(deltaX * toScale);
+        var endY = to.CenterY - (long)Math.Round(deltaY * toScale);
         var x = Math.Min(startX, endX);
         var y = Math.Min(startY, endY);
         var width = Math.Max(Math.Abs(endX - startX), 1);
@@ -619,9 +717,9 @@ public sealed class OpenXmlPresentationBuilder : IPresentationBuilder
             VerticalFlip = endY < startY,
         };
         var outline = new A.Outline(
-            new A.SolidFill(new A.RgbColorModelHex { Val = AzureBlue }),
-            new A.HeadEnd { Type = A.LineEndValues.Triangle },
-            new A.TailEnd { Type = A.LineEndValues.None })
+            new A.SolidFill(new A.RgbColorModelHex { Val = theme.Primary }),
+            new A.HeadEnd { Type = A.LineEndValues.None },
+            new A.TailEnd { Type = A.LineEndValues.Triangle })
         {
             Width = 22_860,
         };
@@ -649,17 +747,44 @@ public sealed class OpenXmlPresentationBuilder : IPresentationBuilder
             AddTextBox(
                 shapeTree,
                 ref shapeId,
+                theme,
                 ((startX + endX) / 2) - Emu(0.7),
                 ((startY + endY) / 2) - Emu(0.18),
                 Emu(1.4),
                 Emu(0.36),
-                [new TextParagraph(label, 700, SlateLight, false)],
+                [
+                    new TextParagraph(
+                        label,
+                        theme.ConnectionLabelSize,
+                        theme.TextMuted,
+                        false),
+                ],
                 A.TextAnchoringTypeValues.Center,
-                White,
-                Border,
-                cornerRadius: true,
+                theme.Surface,
+                theme.Border,
+                cornerRadius: theme.RoundedCards,
                 horizontalAlignment: A.TextAlignmentTypeValues.Center);
         }
+    }
+
+    private static double CalculateBoundaryScale(
+        SlideRect rectangle,
+        long deltaX,
+        long deltaY)
+    {
+        if (deltaX == 0 && deltaY == 0)
+        {
+            return 0;
+        }
+
+        var horizontalScale = deltaX == 0
+            ? double.PositiveInfinity
+            : (rectangle.Width / 2d) / Math.Abs(deltaX);
+        var verticalScale = deltaY == 0
+            ? double.PositiveInfinity
+            : (rectangle.Height / 2d) / Math.Abs(deltaY);
+
+        return Math.Min(horizontalScale, verticalScale);
     }
 
     private static void AddFooter(
@@ -668,7 +793,8 @@ public sealed class OpenXmlPresentationBuilder : IPresentationBuilder
         IReadOnlyList<string> sources,
         string visualizationId,
         int slideNumber,
-        int totalSlides)
+        int totalSlides,
+        PresentationRenderTheme theme)
     {
         var sourceText = sources.Count > 0
             ? $"Sources: {string.Join(" · ", sources)}"
@@ -676,15 +802,23 @@ public sealed class OpenXmlPresentationBuilder : IPresentationBuilder
         AddTextBox(
             shapeTree,
             ref shapeId,
+            theme,
             Emu(0.6),
             Emu(6.45),
             Emu(9.6),
             Emu(0.28),
-            [new TextParagraph(sourceText, 650, SlateLight, false)],
+            [
+                new TextParagraph(
+                    sourceText,
+                    theme.FooterSize,
+                    theme.TextMuted,
+                    false),
+            ],
             A.TextAnchoringTypeValues.Center);
         AddTextBox(
             shapeTree,
             ref shapeId,
+            theme,
             Emu(10.3),
             Emu(6.45),
             Emu(2.3),
@@ -692,8 +826,8 @@ public sealed class OpenXmlPresentationBuilder : IPresentationBuilder
             [
                 new TextParagraph(
                     $"{visualizationId}  |  {slideNumber}/{totalSlides}",
-                    620,
-                    SlateLight,
+                    theme.FooterSize,
+                    theme.TextMuted,
                     false),
             ],
             A.TextAnchoringTypeValues.Center,
@@ -735,6 +869,7 @@ public sealed class OpenXmlPresentationBuilder : IPresentationBuilder
     private static void AddTextBox(
         P.ShapeTree shapeTree,
         ref uint shapeId,
+        PresentationRenderTheme theme,
         long x,
         long y,
         long width,
@@ -785,7 +920,8 @@ public sealed class OpenXmlPresentationBuilder : IPresentationBuilder
         {
             textBody.Append(CreateParagraph(
                 paragraph,
-                horizontalAlignment ?? A.TextAlignmentTypeValues.Left));
+                horizontalAlignment ?? A.TextAlignmentTypeValues.Left,
+                theme));
         }
 
         if (paragraphs.Count == 0)
@@ -801,7 +937,8 @@ public sealed class OpenXmlPresentationBuilder : IPresentationBuilder
 
     private static A.Paragraph CreateParagraph(
         TextParagraph paragraph,
-        A.TextAlignmentTypeValues alignment)
+        A.TextAlignmentTypeValues alignment,
+        PresentationRenderTheme theme)
     {
         var runProperties = new A.RunProperties
         {
@@ -812,7 +949,12 @@ public sealed class OpenXmlPresentationBuilder : IPresentationBuilder
         };
         runProperties.Append(
             new A.SolidFill(new A.RgbColorModelHex { Val = paragraph.Color }),
-            new A.LatinFont { Typeface = "Aptos" });
+            new A.LatinFont
+            {
+                Typeface = paragraph.UseDisplayFont
+                    ? theme.DisplayFontFamily
+                    : theme.FontFamily,
+            });
 
         return new A.Paragraph(
             new A.ParagraphProperties
@@ -935,7 +1077,7 @@ public sealed class OpenXmlPresentationBuilder : IPresentationBuilder
         };
     }
 
-    private static A.Theme CreateTheme()
+    private static A.Theme CreateTheme(PresentationRenderTheme theme)
     {
         var colorScheme = new A.ColorScheme(
             new A.Dark1Color(
@@ -948,30 +1090,30 @@ public sealed class OpenXmlPresentationBuilder : IPresentationBuilder
                 new A.SystemColor
                 {
                     Val = A.SystemColorValues.Window,
-                    LastColor = White,
+                    LastColor = theme.Surface,
                 }),
-            new A.Dark2Color(new A.RgbColorModelHex { Val = Navy }),
-            new A.Light2Color(new A.RgbColorModelHex { Val = Canvas }),
-            new A.Accent1Color(new A.RgbColorModelHex { Val = AzureBlue }),
-            new A.Accent2Color(new A.RgbColorModelHex { Val = Cyan }),
-            new A.Accent3Color(new A.RgbColorModelHex { Val = "14B8A6" }),
-            new A.Accent4Color(new A.RgbColorModelHex { Val = "F59E0B" }),
-            new A.Accent5Color(new A.RgbColorModelHex { Val = "8B5CF6" }),
-            new A.Accent6Color(new A.RgbColorModelHex { Val = "EF4444" }),
-            new A.Hyperlink(new A.RgbColorModelHex { Val = "0563C1" }),
+            new A.Dark2Color(new A.RgbColorModelHex { Val = theme.Title }),
+            new A.Light2Color(new A.RgbColorModelHex { Val = theme.Canvas }),
+            new A.Accent1Color(new A.RgbColorModelHex { Val = theme.Primary }),
+            new A.Accent2Color(new A.RgbColorModelHex { Val = theme.Accent }),
+            new A.Accent3Color(new A.RgbColorModelHex { Val = theme.Success }),
+            new A.Accent4Color(new A.RgbColorModelHex { Val = theme.Warning }),
+            new A.Accent5Color(new A.RgbColorModelHex { Val = theme.Comparison }),
+            new A.Accent6Color(new A.RgbColorModelHex { Val = theme.Danger }),
+            new A.Hyperlink(new A.RgbColorModelHex { Val = theme.Hyperlink }),
             new A.FollowedHyperlinkColor(
-                new A.RgbColorModelHex { Val = "954F72" }))
+                new A.RgbColorModelHex { Val = theme.FollowedHyperlink }))
         {
             Name = "AzHST",
         };
 
         var fontScheme = new A.FontScheme(
             new A.MajorFont(
-                new A.LatinFont { Typeface = "Aptos Display" },
+                new A.LatinFont { Typeface = theme.DisplayFontFamily },
                 new A.EastAsianFont { Typeface = string.Empty },
                 new A.ComplexScriptFont { Typeface = string.Empty }),
             new A.MinorFont(
-                new A.LatinFont { Typeface = "Aptos" },
+                new A.LatinFont { Typeface = theme.FontFamily },
                 new A.EastAsianFont { Typeface = string.Empty },
                 new A.ComplexScriptFont { Typeface = string.Empty }))
         {
@@ -1057,7 +1199,88 @@ public sealed class OpenXmlPresentationBuilder : IPresentationBuilder
         string Text,
         int FontSize,
         string Color,
-        bool Bold);
+        bool Bold,
+        bool UseDisplayFont = false);
+
+    private sealed record PresentationRenderTheme(
+        string Canvas,
+        string Surface,
+        string SummarySurface,
+        string Title,
+        string Text,
+        string TextMuted,
+        string Border,
+        string Primary,
+        string Accent,
+        string IconTile,
+        string Success,
+        string Warning,
+        string Comparison,
+        string Danger,
+        string Hyperlink,
+        string FollowedHyperlink,
+        string FontFamily,
+        string DisplayFontFamily,
+        int TitleSize,
+        int SubtitleSize,
+        int SlideTitleSize,
+        int SummarySize,
+        int BodySize,
+        int NodeLabelSize,
+        int NodeDetailSize,
+        int ConnectionLabelSize,
+        int FooterSize,
+        bool RoundedCards,
+        bool ShowHeaderRule,
+        bool ShowIconTile)
+    {
+        public static PresentationRenderTheme Create(
+            PresentationThemeDefinition definition)
+        {
+            return new PresentationRenderTheme(
+                Color(definition.Palette.Canvas),
+                Color(definition.Palette.Surface),
+                Color(definition.Palette.SummarySurface),
+                Color(definition.Palette.Title),
+                Color(definition.Palette.Text),
+                Color(definition.Palette.TextMuted),
+                Color(definition.Palette.Border),
+                Color(definition.Palette.Primary),
+                Color(definition.Palette.Accent),
+                Color(definition.Palette.IconTile),
+                Color(definition.Palette.Success),
+                Color(definition.Palette.Warning),
+                Color(definition.Palette.Comparison),
+                Color(definition.Palette.Danger),
+                Color(definition.Palette.Hyperlink),
+                Color(definition.Palette.FollowedHyperlink),
+                definition.Typography.FontFamily,
+                definition.Typography.DisplayFontFamily,
+                Points(definition.Typography.TitleSizePoints),
+                Points(definition.Typography.SubtitleSizePoints),
+                Points(definition.Typography.SlideTitleSizePoints),
+                Points(definition.Typography.SummarySizePoints),
+                Points(definition.Typography.BodySizePoints),
+                Points(definition.Typography.NodeLabelSizePoints),
+                Points(definition.Typography.NodeDetailSizePoints),
+                Points(definition.Typography.ConnectionLabelSizePoints),
+                Points(definition.Typography.FooterSizePoints),
+                definition.Appearance.RoundedCards,
+                definition.Appearance.ShowHeaderRule,
+                definition.Appearance.IconTreatment
+                    == PresentationIconTreatment.LightTile);
+        }
+
+        private static string Color(string value)
+        {
+            return value[1..].ToUpperInvariant();
+        }
+
+        private static int Points(int value)
+        {
+            return checked(value * 100);
+        }
+    }
 
     private sealed record SlideRect(
         long X,

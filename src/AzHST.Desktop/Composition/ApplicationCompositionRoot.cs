@@ -17,6 +17,7 @@ internal static class ApplicationCompositionRoot
             testOptions.SimulateMissingGitHubCli);
         var browser = new ExternalBrowserLauncher();
         var artifactStore = new FileGeneratedArtifactStore(paths);
+        var themes = FileOutputThemeCatalog.CreateDefault();
         var azureIcons = FileAzureIconCatalog.CreateDefault();
         var copilotClient = new CopilotVisualizationClient(paths, azureIcons);
         var documentProcessor = new GeneratedHtmlDocumentProcessor(azureIcons);
@@ -26,16 +27,20 @@ internal static class ApplicationCompositionRoot
             copilotClient,
             documentProcessor,
             artifactStore,
-            artifactIdGenerator);
+            artifactIdGenerator,
+            themes);
         var presentationBuilder = new OpenXmlPresentationBuilder(azureIcons);
         var presentationUseCase = new GeneratePresentationUseCase(
             copilotClient,
             presentationBuilder,
-            azureIcons);
+            azureIcons,
+            themes);
 
         MainWindow? mainWindow = null;
         var clipboardService = new ClipboardService(() => mainWindow);
-        var settingsDialogService = new SettingsDialogService(() => mainWindow);
+        var settingsDialogService = new SettingsDialogService(
+            () => mainWindow,
+            themes);
         var loginDialogService = new GitHubLoginDialogService(() => mainWindow);
         var viewModel = new MainWindowViewModel(
             generationUseCase,

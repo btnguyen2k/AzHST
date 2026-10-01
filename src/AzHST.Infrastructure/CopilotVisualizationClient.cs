@@ -178,9 +178,11 @@ public sealed class CopilotVisualizationClient :
         string query,
         string model,
         string visualizationId,
+        HtmlThemeDefinition theme,
         IProgress<GenerationProgress>? progress = null,
         CancellationToken cancellationToken = default)
     {
+        ArgumentNullException.ThrowIfNull(theme);
         cancellationToken.ThrowIfCancellationRequested();
         Directory.CreateDirectory(_paths.CopilotDirectory);
 
@@ -195,7 +197,7 @@ public sealed class CopilotVisualizationClient :
         await using var session = await CreateSessionAsync(
             client,
             model,
-            BuildVisualizationSystemMessage(query));
+            BuildVisualizationSystemMessage(query, theme));
 
         progress?.Report(new GenerationProgress(
             GenerationStage.Generating,
@@ -293,12 +295,19 @@ public sealed class CopilotVisualizationClient :
         }
     }
 
-    private string BuildVisualizationSystemMessage(string query)
+    private string BuildVisualizationSystemMessage(
+        string query,
+        HtmlThemeDefinition theme)
     {
+        var systemMessage = $"""
+            {VisualizationSystemMessage}
+
+            {BuildHtmlThemeRequirements(theme)}
+            """;
         var icons = _azureIcons.FindRelevant(query, MaximumPromptIcons);
         if (icons.Count == 0)
         {
-            return VisualizationSystemMessage;
+            return systemMessage;
         }
 
         var catalog = string.Join(
@@ -308,7 +317,7 @@ public sealed class CopilotVisualizationClient :
         var example = icons[0];
 
         return $"""
-            {VisualizationSystemMessage}
+            {systemMessage}
 
             Official Azure icon requirements:
             - Use official icons from the approved catalog when they clarify an actual Microsoft service in the diagram.
@@ -323,6 +332,65 @@ public sealed class CopilotVisualizationClient :
 
             Approved Azure icon catalog:
             {catalog}
+            """;
+    }
+
+    private static string BuildHtmlThemeRequirements(
+        HtmlThemeDefinition theme)
+    {
+        var palette = theme.Palette;
+        var appearance = theme.Appearance;
+        var motion = theme.Motion;
+        var surfaceRequirement = appearance.SurfaceStyle == HtmlSurfaceStyle.Layered
+            ? "Use visibly distinct page, surface, raised-surface, and selected-surface layers."
+            : "Use a restrained flat surface treatment with borders for hierarchy.";
+        var iconRequirement = appearance.IconTreatment == HtmlIconTreatment.LightTile
+            ? "Place official Azure icons on compact light-neutral tiles using var(--azh-icon-tile)."
+            : "Place official Azure icons on surface-colored tiles using var(--azh-surface).";
+        var pureBlackRequirement = appearance.AllowPureBlack
+            ? "Pure black may be used sparingly."
+            : "Do not use pure black.";
+        var glassRequirement = appearance.AllowGlassmorphism
+            ? "Use translucent effects only when text contrast remains accessible."
+            : "Do not use glassmorphism or low-contrast translucent cards.";
+        var continuousMotionRequirement = motion.AllowContinuousDecorativeMotion
+            ? "Continuous motion must remain subtle and pausable."
+            : "Do not use continuous decorative motion.";
+
+        return $"""
+            Authoritative output theme requirements:
+            - Set the root element to <html data-azh-theme="{theme.Id}">.
+            - AzHST injects the authoritative CSS variables after generation. Use these variables throughout the page and do not define or override them:
+              --azh-page ({palette.Page})
+              --azh-surface ({palette.Surface})
+              --azh-surface-raised ({palette.SurfaceRaised})
+              --azh-surface-selected ({palette.SurfaceSelected})
+              --azh-border ({palette.Border})
+              --azh-text ({palette.Text})
+              --azh-text-muted ({palette.TextMuted})
+              --azh-primary ({palette.Primary})
+              --azh-flow-active ({palette.ActiveFlow})
+              --azh-accent ({palette.Accent})
+              --azh-success ({palette.Success})
+              --azh-warning ({palette.Warning})
+              --azh-danger ({palette.Danger})
+              --azh-focus ({palette.Focus})
+              --azh-icon-tile ({palette.IconTile})
+              --azh-font-family
+              --azh-base-size
+              --azh-line-height
+              --azh-corner-radius
+              --azh-icon-tile-size
+              --azh-transition-duration
+              --azh-sequence-step-duration
+            - {surfaceRequirement}
+            - {iconRequirement}
+            - Use no more than {appearance.MaximumGradients} restrained gradients.
+            - {pureBlackRequirement}
+            - {glassRequirement}
+            - Use --azh-transition-duration for short UI transitions and --azh-sequence-step-duration for instructional sequences.
+            - {continuousMotionRequirement}
+            - Color must never be the only way to communicate state.
             """;
     }
 

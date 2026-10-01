@@ -38,6 +38,32 @@ public sealed class GeneratedHtmlDocumentProcessorTests
     }
 
     [Fact]
+    public void Process_AppliesConfiguredThemeAndReplacesModelThemeMarkup()
+    {
+        var response = CreateDocument(
+                headMarkup:
+                    """<style id="azh-output-theme">body { color: hotpink; }</style>""")
+            .Replace(
+                "<html>",
+                """<html data-azh-theme="model-theme">""",
+                StringComparison.Ordinal);
+
+        var result = _processor.Process(response, CreateHtmlTheme());
+
+        Assert.Contains("data-azh-theme=\"azure-night\"", result);
+        Assert.Contains("""<style id="azh-output-theme">""", result);
+        Assert.Contains("--azh-page: #071426;", result);
+        Assert.Contains("--azh-transition-duration: 220ms;", result);
+        Assert.Contains("color-scheme: dark;", result);
+        Assert.DoesNotContain("model-theme", result);
+        Assert.DoesNotContain("hotpink", result);
+        Assert.Equal(
+            1,
+            result.Split("id=\"azh-output-theme\"", StringSplitOptions.None)
+                .Length - 1);
+    }
+
+    [Fact]
     public void Process_RemovesBaseElement()
     {
         var response = CreateDocument(headMarkup: """<base href="/">""");
@@ -190,6 +216,28 @@ public sealed class GeneratedHtmlDocumentProcessorTests
         Assert.Contains("safety limit", exception.Message);
     }
 
+    [Fact]
+    public void Process_RejectsDocumentThatExceedsLimitAfterThemeInjection()
+    {
+        const string paddingToken = "THEME_PADDING";
+        var template = CreateDocument(
+            bodyMarkup: $"<!--{paddingToken}-->").Trim();
+        var targetLength =
+            GeneratedHtmlDocumentProcessor.MaximumDocumentLength - 1;
+        var paddingLength =
+            targetLength - template.Length + paddingToken.Length;
+        var response = template.Replace(
+            paddingToken,
+            new string('x', paddingLength),
+            StringComparison.Ordinal);
+        Assert.Equal(targetLength, response.Length);
+
+        var exception = Assert.Throws<VisualizationGenerationException>(
+            () => _processor.Process(response, CreateHtmlTheme()));
+
+        Assert.Contains("after final processing", exception.Message);
+    }
+
     private static string CreateDocument(
         string headMarkup = "",
         string bodyMarkup = "",
@@ -240,6 +288,55 @@ public sealed class GeneratedHtmlDocumentProcessorTests
             </body>
             </html>
             """;
+    }
+
+    private static HtmlThemeDefinition CreateHtmlTheme()
+    {
+        return new HtmlThemeDefinition
+        {
+            SchemaVersion = 1,
+            Id = "azure-night",
+            DisplayName = "Azure Night",
+            Palette = new HtmlThemePalette
+            {
+                Page = "#071426",
+                Surface = "#0D1B2A",
+                SurfaceRaised = "#12263D",
+                SurfaceSelected = "#173554",
+                Border = "#29415F",
+                Text = "#F3F7FC",
+                TextMuted = "#A9B8CC",
+                Primary = "#4CA6FF",
+                ActiveFlow = "#22D3EE",
+                Accent = "#7DD3FC",
+                Success = "#34D399",
+                Warning = "#FBBF24",
+                Danger = "#FB7185",
+                Focus = "#93C5FD",
+                IconTile = "#EAF4FC",
+            },
+            Typography = new HtmlThemeTypography
+            {
+                FontFamily = "Inter, Segoe UI, sans-serif",
+                BaseSizePixels = 16,
+                LineHeight = 1.5,
+            },
+            Appearance = new HtmlThemeAppearance
+            {
+                ColorScheme = HtmlColorScheme.Dark,
+                SurfaceStyle = HtmlSurfaceStyle.Layered,
+                CornerRadiusPixels = 14,
+                IconTileSizePixels = 44,
+                AllowPureBlack = false,
+                AllowGlassmorphism = false,
+            },
+            Motion = new HtmlThemeMotion
+            {
+                TransitionDurationMilliseconds = 220,
+                SequenceStepDurationMilliseconds = 650,
+                AllowContinuousDecorativeMotion = false,
+            },
+        };
     }
 
     private sealed class StubAzureIconCatalog(

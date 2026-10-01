@@ -16,7 +16,8 @@ public sealed class GeneratePresentationUseCaseTests
         var useCase = new GeneratePresentationUseCase(
             planner,
             builder,
-            new StubAzureIconCatalog("networking/app-gateway"));
+            new StubAzureIconCatalog("networking/app-gateway"),
+            new StubOutputThemeCatalog());
         var visualization = CreateVisualization();
 
         var result = await useCase.ExecuteAsync(
@@ -29,6 +30,9 @@ public sealed class GeneratePresentationUseCaseTests
         Assert.Equal("gpt-5", planner.Model);
         Assert.Equal(visualization.Id, planner.VisualizationId);
         Assert.Same(visualization, builder.Visualization);
+        Assert.Equal(
+            OutputThemeSettings.DefaultPresentationThemeId,
+            builder.Theme?.Id);
         Assert.Equal("diagram", builder.Plan!.Slides[1].Kind);
         Assert.Equal(builder.Artifact, result);
     }
@@ -40,7 +44,8 @@ public sealed class GeneratePresentationUseCaseTests
         var useCase = new GeneratePresentationUseCase(
             planner,
             new StubBuilder([]),
-            new StubAzureIconCatalog("networking/app-gateway"));
+            new StubAzureIconCatalog("networking/app-gateway"),
+            new StubOutputThemeCatalog());
 
         await useCase.ExecuteAsync(
             "Explain Azure Application Gateway",
@@ -48,6 +53,31 @@ public sealed class GeneratePresentationUseCaseTests
             new AppSettings { Model = " " });
 
         Assert.Equal(AppSettings.DefaultModel, planner.Model);
+    }
+
+    [Fact]
+    public async Task ExecuteAsync_UsesSelectedPresentationTheme()
+    {
+        var planner = new StubPlanner(CreateValidPlan(), []);
+        var builder = new StubBuilder([]);
+        var useCase = new GeneratePresentationUseCase(
+            planner,
+            builder,
+            new StubAzureIconCatalog("networking/app-gateway"),
+            new StubOutputThemeCatalog("custom-light"));
+
+        await useCase.ExecuteAsync(
+            "Explain Azure Application Gateway",
+            CreateVisualization(),
+            new AppSettings
+            {
+                Themes = new OutputThemeSettings
+                {
+                    PresentationThemeId = "custom-light",
+                },
+            });
+
+        Assert.Equal("custom-light", builder.Theme?.Id);
     }
 
     [Fact]
@@ -62,7 +92,8 @@ public sealed class GeneratePresentationUseCaseTests
         var useCase = new GeneratePresentationUseCase(
             new StubPlanner(plan, []),
             builder,
-            new StubAzureIconCatalog("networking/app-gateway"));
+            new StubAzureIconCatalog("networking/app-gateway"),
+            new StubOutputThemeCatalog());
 
         var exception = await Assert.ThrowsAsync<PresentationGenerationException>(
             () => useCase.ExecuteAsync(
@@ -83,7 +114,8 @@ public sealed class GeneratePresentationUseCaseTests
         var useCase = new GeneratePresentationUseCase(
             new StubPlanner(plan, []),
             builder,
-            new StubAzureIconCatalog("networking/app-gateway"));
+            new StubAzureIconCatalog("networking/app-gateway"),
+            new StubOutputThemeCatalog());
 
         var exception = await Assert.ThrowsAsync<PresentationGenerationException>(
             () => useCase.ExecuteAsync(
@@ -104,7 +136,8 @@ public sealed class GeneratePresentationUseCaseTests
         var useCase = new GeneratePresentationUseCase(
             new StubPlanner(plan, []),
             builder,
-            new StubAzureIconCatalog("networking/app-gateway"));
+            new StubAzureIconCatalog("networking/app-gateway"),
+            new StubOutputThemeCatalog());
 
         var exception = await Assert.ThrowsAsync<PresentationGenerationException>(
             () => useCase.ExecuteAsync(
@@ -125,7 +158,8 @@ public sealed class GeneratePresentationUseCaseTests
         var useCase = new GeneratePresentationUseCase(
             new StubPlanner(plan, []),
             builder,
-            new StubAzureIconCatalog("networking/app-gateway"));
+            new StubAzureIconCatalog("networking/app-gateway"),
+            new StubOutputThemeCatalog());
 
         var exception = await Assert.ThrowsAsync<PresentationGenerationException>(
             () => useCase.ExecuteAsync(
@@ -234,6 +268,8 @@ public sealed class GeneratePresentationUseCaseTests
 
         public VisualizationArtifact? Visualization { get; private set; }
 
+        public PresentationThemeDefinition? Theme { get; private set; }
+
         public PresentationArtifact Artifact { get; } = new(
             "0199abcd1234-app-gateway",
             @"C:\generated\0199abcd1234-app-gateway\presentation.pptx",
@@ -243,12 +279,53 @@ public sealed class GeneratePresentationUseCaseTests
         public Task<PresentationArtifact> BuildAsync(
             PresentationPlan plan,
             VisualizationArtifact visualization,
+            PresentationThemeDefinition theme,
             CancellationToken cancellationToken = default)
         {
             calls.Add("build");
             Plan = plan;
             Visualization = visualization;
+            Theme = theme;
             return Task.FromResult(Artifact);
+        }
+    }
+
+    private sealed class StubOutputThemeCatalog : IOutputThemeCatalog
+    {
+        private readonly PresentationThemeDefinition _presentationTheme;
+
+        public StubOutputThemeCatalog(
+            string presentationThemeId =
+                OutputThemeSettings.DefaultPresentationThemeId)
+        {
+            _presentationTheme = new PresentationThemeDefinition
+            {
+                SchemaVersion = 1,
+                Id = presentationThemeId,
+                DisplayName = "Presentation theme",
+            };
+            PresentationThemes =
+            [
+                new(presentationThemeId, "Presentation theme"),
+            ];
+        }
+
+        public IReadOnlyList<OutputThemeOption> HtmlThemes { get; } =
+        [
+            new(OutputThemeSettings.DefaultHtmlThemeId, "Azure Night"),
+        ];
+
+        public IReadOnlyList<OutputThemeOption> PresentationThemes { get; }
+
+        public HtmlThemeDefinition GetHtmlTheme(string id)
+        {
+            throw new NotSupportedException();
+        }
+
+        public PresentationThemeDefinition GetPresentationTheme(string id)
+        {
+            Assert.Equal(_presentationTheme.Id, id);
+            return _presentationTheme;
         }
     }
 

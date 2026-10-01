@@ -1,0 +1,42 @@
+{
+  "schemaVersion": 1,
+  "id": "azure-night",
+  "displayName": "Azure Night",
+  "palette": {
+    "page": "#071426",
+    "surface": "#0D1B2A",
+    "surfaceRaised": "#12263D",
+    "surfaceSelected": "#173554",
+    "border": "#29415F",
+    "text": "#F3F7FC",
+    "textMuted": "#A9B8CC",
+    "primary": "#0078D4",
+    "activeFlow": "#4CC2FF",
+    "accent": "#A78BFA",
+    "success": "#57C785",
+    "warning": "#F6C85F",
+    "danger": "#FF6B6B",
+    "focus": "#7CC4FF",
+    "iconTile": "#F8FAFC"
+  },
+  "typography": {
+    "fontFamily": "\"Segoe UI Variable\", \"Segoe UI\", Roboto, Arial, sans-serif",
+    "baseSizePixels": 16,
+    "lineHeight": 1.5
+  },
+  "appearance": {
+    "colorScheme": "dark",
+    "surfaceStyle": "layered",
+    "iconTreatment": "lightTile",
+    "allowPureBlack": false,
+    "allowGlassmorphism": false,
+    "maximumGradients": 2,
+    "cornerRadiusPixels": 12,
+    "iconTileSizePixels": 44
+  },
+  "motion": {
+    "transitionDurationMilliseconds": 200,
+    "sequenceStepDurationMilliseconds": 700,
+    "allowContinuousDecorativeMotion": false
+  }
+}
