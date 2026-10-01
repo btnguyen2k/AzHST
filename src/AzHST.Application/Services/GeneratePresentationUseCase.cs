@@ -27,7 +27,8 @@ public sealed partial class GeneratePresentationUseCase
     private const int MaximumNodeDetailLength = 220;
     private const int MaximumConnectionLabelLength = 60;
     private const int MaximumSourcesPerSlide = 4;
-    private const int MaximumSourceLength = 100;
+    private const int MaximumSourceLength =
+        PresentationSourcePolicy.MaximumTitleLength;
 
     private static readonly HashSet<string> SupportedKinds = new(
         ["content", "diagram", "comparison", "cards", "summary"],
@@ -145,6 +146,19 @@ public sealed partial class GeneratePresentationUseCase
         var normalizedSlides = slides
             .Select((slide, index) => ValidateSlide(slide, index + 1))
             .ToList();
+        var sources = ValidateSources(plan.Sources);
+        if (sources.Count == 0)
+        {
+            sources = normalizedSlides
+                .SelectMany(slide => slide.Sources)
+                .Distinct(StringComparer.OrdinalIgnoreCase)
+                .Take(PresentationSourcePolicy.MaximumSourceCount)
+                .Select(title => new PresentationSourcePlan
+                {
+                    Title = title,
+                })
+                .ToList();
+        }
 
         if (!VisualKinds.Contains(normalizedSlides[0].Kind))
         {
@@ -166,8 +180,57 @@ public sealed partial class GeneratePresentationUseCase
         {
             Title = title,
             Subtitle = subtitle,
+            Sources = sources,
             Slides = normalizedSlides,
         };
+    }
+
+    private static List<PresentationSourcePlan> ValidateSources(
+        List<PresentationSourcePlan>? sources)
+    {
+        sources ??= [];
+        if (sources.Count > PresentationSourcePolicy.MaximumSourceCount)
+        {
+            throw new PresentationGenerationException(
+                $"The presentation contains more than {PresentationSourcePolicy.MaximumSourceCount} sources.");
+        }
+
+        var normalized = new List<PresentationSourcePlan>(sources.Count);
+        var urls = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
+        foreach (var source in sources)
+        {
+            if (source is null)
+            {
+                throw new PresentationGenerationException(
+                    "The presentation contains a missing source.");
+            }
+
+            var title = RequireText(
+                source.Title,
+                "presentation source title",
+                PresentationSourcePolicy.MaximumTitleLength);
+            if (!PresentationSourcePolicy.TryNormalizeUrl(
+                    source.Url,
+                    out var url))
+            {
+                throw new PresentationGenerationException(
+                    $"The presentation source '{title}' must use an approved Microsoft HTTPS URL.");
+            }
+
+            if (!urls.Add(url))
+            {
+                throw new PresentationGenerationException(
+                    $"The presentation contains duplicate source URL '{url}'.");
+            }
+
+            normalized.Add(new PresentationSourcePlan
+            {
+                Title = title,
+                Url = url,
+            });
+        }
+
+        return normalized;
     }
 
     private PresentationSlidePlan ValidateSlide(

@@ -104,6 +104,9 @@ public sealed partial class HtmlPresentationOutlineBuilder
             case "img":
                 AddImage(element, outline);
                 return;
+            case "a":
+                AddLink(element, outline);
+                return;
             case "button":
                 AddControl(element, outline);
                 return;
@@ -177,6 +180,22 @@ public sealed partial class HtmlPresentationOutlineBuilder
             string.IsNullOrWhiteSpace(key)
                 ? alt
                 : $"{key} | {alt}");
+    }
+
+    private static void AddLink(
+        IElement element,
+        OutlineCollector outline)
+    {
+        var text = Normalize(element.TextContent);
+        var href = element.GetAttribute("href")?.Trim() ?? string.Empty;
+        if (Uri.TryCreate(href, UriKind.Absolute, out var uri)
+            && uri.Scheme == Uri.UriSchemeHttps)
+        {
+            outline.Add("LINK", $"{text} | {uri.AbsoluteUri}");
+            return;
+        }
+
+        outline.Add("TEXT", text);
     }
 
     private static void AddControl(

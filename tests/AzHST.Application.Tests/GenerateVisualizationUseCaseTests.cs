@@ -26,11 +26,21 @@ public sealed class GenerateVisualizationUseCaseTests
           <main>
             <button id="next" type="button">Next step</button>
             <div id="stage">Visualization</div>
+            <section id="sources">
+              <h2>Sources</h2>
+              <a data-azh-source href="https://learn.microsoft.com/azure/azure-functions/" target="_blank" rel="noopener noreferrer">Azure Functions documentation</a>
+            </section>
           </main>
           <script id="azh-presentation-plan" type="application/json">
           {
             "title": "Azure Functions",
             "subtitle": "Safe visualization",
+            "sources": [
+              {
+                "title": "Azure Functions documentation",
+                "url": "https://learn.microsoft.com/azure/azure-functions/"
+              }
+            ],
             "slides": [
               {
                 "kind": "diagram",

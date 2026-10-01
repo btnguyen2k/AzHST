@@ -539,7 +539,7 @@
           BorderBrush="#2A3A5F"
           BorderThickness="1"
           CornerRadius="14">
-        <Grid RowDefinitions="Auto,Auto,Auto">
+        <Grid RowDefinitions="Auto,Auto,Auto,Auto">
           <TextBox
               AutomationProperties.AutomationId="QueryInput"
               Classes="query"
@@ -555,7 +555,7 @@
                 VerticalAlignment="Center"
                 Foreground="#8FA4CB"
                 Text="{Binding StatusMessage}"
-                TextTrimming="CharacterEllipsis" />
+                TextWrapping="Wrap" />
             <Button
                 Grid.Column="1"
                 Margin="10,0"
@@ -590,8 +590,27 @@
               </StackPanel>
             </Button>
           </Grid>
-          <ProgressBar
+          <Border
               Grid.Row="2"
+              Margin="0,12,0,0"
+              Padding="12"
+              Background="#2A1620"
+              BorderBrush="#7A3445"
+              BorderThickness="1"
+              CornerRadius="8"
+              IsVisible="{Binding HasOperationError}">
+            <ScrollViewer
+                MaxHeight="160"
+                VerticalScrollBarVisibility="Auto">
+              <SelectableTextBlock
+                  AutomationProperties.AutomationId="OperationErrorMessage"
+                  Foreground="#FFB4AB"
+                  Text="{Binding OperationErrorMessage}"
+                  TextWrapping="Wrap" />
+            </ScrollViewer>
+          </Border>
+          <ProgressBar
+              Grid.Row="3"
               Height="3"
               Margin="0,12,0,0"
               IsIndeterminate="True"

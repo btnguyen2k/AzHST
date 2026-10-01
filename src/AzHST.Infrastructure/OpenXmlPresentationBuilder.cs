@@ -92,7 +92,7 @@ public sealed class OpenXmlPresentationBuilder : IPresentationBuilder
             visualization.Id,
             filePath,
             new Uri(filePath, UriKind.Absolute),
-            plan.Slides.Count + 1);
+            plan.Slides.Count + 2);
     }
 
     private void CreatePresentation(
@@ -133,7 +133,6 @@ public sealed class OpenXmlPresentationBuilder : IPresentationBuilder
         {
             cancellationToken.ThrowIfCancellationRequested();
             var slidePlan = plan.Slides[index];
-            var slideNumber = index + 2;
 
             AddSlide(
                 presentationPart,
@@ -143,11 +142,19 @@ public sealed class OpenXmlPresentationBuilder : IPresentationBuilder
                 slidePart => BuildContentSlide(
                     slidePart,
                     slidePlan,
-                    visualizationId,
-                    slideNumber,
-                    plan.Slides.Count + 1,
                     theme));
         }
+
+        cancellationToken.ThrowIfCancellationRequested();
+        AddSlide(
+            presentationPart,
+            slideLayoutPart,
+            slideIdList,
+            ref slideId,
+            slidePart => BuildSourcesSlide(
+                slidePart,
+                plan.Sources,
+                theme));
 
         presentationPart.Presentation.Save();
     }
@@ -321,12 +328,215 @@ public sealed class OpenXmlPresentationBuilder : IPresentationBuilder
         slidePart.Slide = CreateSlide(shapeTree);
     }
 
+    private static void BuildSourcesSlide(
+        SlidePart slidePart,
+        IReadOnlyList<PresentationSourcePlan> sources,
+        PresentationRenderTheme theme)
+    {
+        var shapeTree = CreateShapeTree();
+        uint shapeId = 1;
+
+        AddRectangle(
+            shapeTree,
+            ref shapeId,
+            0,
+            0,
+            SlideWidth,
+            SlideHeight,
+            theme.Canvas,
+            theme.Canvas,
+            cornerRadius: false);
+        AddRectangle(
+            shapeTree,
+            ref shapeId,
+            0,
+            Emu(0.88),
+            SlideWidth,
+            Emu(0.04),
+            theme.Primary,
+            theme.Primary,
+            cornerRadius: false);
+        AddTextBox(
+            shapeTree,
+            ref shapeId,
+            theme,
+            Emu(0.62),
+            Emu(0.16),
+            Emu(9.35),
+            Emu(0.54),
+            [
+                new TextParagraph(
+                    "Resources / Sources",
+                    theme.SlideTitleSize,
+                    theme.Title,
+                    true,
+                    UseDisplayFont: true),
+            ],
+            A.TextAnchoringTypeValues.Center);
+        AddTextBox(
+            shapeTree,
+            ref shapeId,
+            theme,
+            Emu(0.75),
+            Emu(1.08),
+            Emu(11.8),
+            Emu(0.42),
+            [
+                new TextParagraph(
+                    "Official references and supporting documentation",
+                    theme.SummarySize,
+                    theme.TextMuted,
+                    false),
+            ],
+            A.TextAnchoringTypeValues.Center);
+
+        if (sources.Count > 0)
+        {
+            AddTextBox(
+                shapeTree,
+                ref shapeId,
+                theme,
+                Emu(10.3),
+                Emu(0.22),
+                Emu(1.75),
+                Emu(0.34),
+                [
+                    new TextParagraph(
+                        sources.Count == 1
+                            ? "1 REFERENCE"
+                            : $"{sources.Count} REFERENCES",
+                        Math.Min(theme.BodySize, 800),
+                        theme.Primary,
+                        true),
+                ],
+                A.TextAnchoringTypeValues.Center,
+                theme.SummarySurface,
+                theme.Border,
+                cornerRadius: theme.RoundedCards,
+                horizontalAlignment: A.TextAlignmentTypeValues.Center);
+        }
+
+        if (sources.Count == 0)
+        {
+            AddTextBox(
+                shapeTree,
+                ref shapeId,
+                theme,
+                Emu(0.75),
+                Emu(1.75),
+                Emu(11.8),
+                Emu(1.0),
+                [
+                    new TextParagraph(
+                        "No source references are available for this presentation.",
+                        theme.BodySize,
+                        theme.Text,
+                        false),
+                ],
+                A.TextAnchoringTypeValues.Center,
+                theme.SummarySurface,
+                theme.Border,
+                cornerRadius: theme.RoundedCards);
+            slidePart.Slide = CreateSlide(shapeTree);
+            return;
+        }
+
+        var columns = sources.Count > 4 ? 2 : 1;
+        var rows = (int)Math.Ceiling(sources.Count / (double)columns);
+        var bounds = new SlideRect(
+            Emu(0.75),
+            Emu(1.58),
+            Emu(11.8),
+            Emu(4.78));
+        var columnGap = Emu(0.28);
+        var rowGap = Emu(0.16);
+        var cardWidth =
+            (bounds.Width - ((columns - 1) * columnGap)) / columns;
+        var cardHeight = Math.Min(
+            Emu(1.0),
+            (bounds.Height - ((rows - 1) * rowGap)) / rows);
+        var contentHeight = (rows * cardHeight) + ((rows - 1) * rowGap);
+        var cardsTop = bounds.Y + ((bounds.Height - contentHeight) / 2);
+
+        for (var index = 0; index < sources.Count; index++)
+        {
+            var source = sources[index];
+            var column = index % columns;
+            var row = index / columns;
+            var cardX = bounds.X + (column * (cardWidth + columnGap));
+            var cardY = cardsTop + (row * (cardHeight + rowGap));
+            AddRectangle(
+                shapeTree,
+                ref shapeId,
+                cardX,
+                cardY,
+                cardWidth,
+                cardHeight,
+                theme.Surface,
+                theme.Border,
+                cornerRadius: theme.RoundedCards);
+
+            var badgeSize = Math.Min(
+                Emu(0.46),
+                cardHeight - Emu(0.2));
+            var badgeX = cardX + Emu(0.16);
+            var badgeY = cardY + ((cardHeight - badgeSize) / 2);
+            AddTextBox(
+                shapeTree,
+                ref shapeId,
+                theme,
+                badgeX,
+                badgeY,
+                badgeSize,
+                badgeSize,
+                [
+                    new TextParagraph(
+                        $"{index + 1:00}",
+                        Math.Min(theme.NodeLabelSize, 950),
+                        theme.Surface,
+                        true),
+                ],
+                A.TextAnchoringTypeValues.Center,
+                theme.Primary,
+                theme.Primary,
+                cornerRadius: true,
+                horizontalAlignment: A.TextAlignmentTypeValues.Center);
+
+            var paragraphs = new List<TextParagraph>
+            {
+                new(
+                    source.Title,
+                    Math.Min(theme.NodeLabelSize, 1_200),
+                    theme.Title,
+                    true),
+            };
+            if (source.Url.Length > 0)
+            {
+                paragraphs.Add(new TextParagraph(
+                    source.Url,
+                    Math.Min(theme.BodySize, 850),
+                    theme.Hyperlink,
+                    false));
+            }
+
+            AddTextBox(
+                shapeTree,
+                ref shapeId,
+                theme,
+                badgeX + badgeSize + Emu(0.14),
+                cardY + Emu(0.08),
+                cardWidth - badgeSize - Emu(0.46),
+                cardHeight - Emu(0.16),
+                paragraphs,
+                A.TextAnchoringTypeValues.Center);
+        }
+
+        slidePart.Slide = CreateSlide(shapeTree);
+    }
+
     private void BuildContentSlide(
         SlidePart slidePart,
         PresentationSlidePlan plan,
-        string visualizationId,
-        int slideNumber,
-        int totalSlides,
         PresentationRenderTheme theme)
     {
         var shapeTree = CreateShapeTree();
@@ -419,15 +629,6 @@ public sealed class OpenXmlPresentationBuilder : IPresentationBuilder
         {
             BuildTextSlide(shapeTree, ref shapeId, plan, theme);
         }
-
-        AddFooter(
-            shapeTree,
-            ref shapeId,
-            plan.Sources,
-            visualizationId,
-            slideNumber,
-            totalSlides,
-            theme);
 
         slidePart.Slide = CreateSlide(shapeTree);
     }
@@ -1222,61 +1423,6 @@ public sealed class OpenXmlPresentationBuilder : IPresentationBuilder
             : (rectangle.Height / 2d) / Math.Abs(deltaY);
 
         return Math.Min(horizontalScale, verticalScale);
-    }
-
-    private static void AddFooter(
-        P.ShapeTree shapeTree,
-        ref uint shapeId,
-        IReadOnlyList<string> sources,
-        string visualizationId,
-        int slideNumber,
-        int totalSlides,
-        PresentationRenderTheme theme)
-    {
-        var sourceText = sources.Count > 0
-            ? $"Sources: {string.Join(" · ", sources)}"
-            : "Validate current details against Microsoft documentation.";
-        sourceText = TruncateText(sourceText, 125);
-        AddTextBox(
-            shapeTree,
-            ref shapeId,
-            theme,
-            Emu(0.6),
-            Emu(6.45),
-            Emu(8.25),
-            Emu(0.28),
-            [
-                new TextParagraph(
-                    sourceText,
-                    theme.FooterSize,
-                    theme.TextMuted,
-                    false),
-            ],
-            A.TextAnchoringTypeValues.Center);
-        AddTextBox(
-            shapeTree,
-            ref shapeId,
-            theme,
-            Emu(9.05),
-            Emu(6.45),
-            Emu(3.65),
-            Emu(0.28),
-            [
-                new TextParagraph(
-                    $"{visualizationId}  |  {slideNumber}/{totalSlides}",
-                    theme.FooterSize,
-                    theme.TextMuted,
-                    false),
-            ],
-            A.TextAnchoringTypeValues.Center,
-            horizontalAlignment: A.TextAlignmentTypeValues.Right);
-    }
-
-    private static string TruncateText(string value, int maximumLength)
-    {
-        return value.Length <= maximumLength
-            ? value
-            : $"{value[..(maximumLength - 3)]}...";
     }
 
     private static void AddRectangle(

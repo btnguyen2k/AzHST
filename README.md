@@ -128,7 +128,8 @@ generated\
 The generated root can be changed in Settings.
 
 After a visualization is ready, select **Build PowerPoint**. AzHST creates a
-title slide plus 4-9 content slides and stores the deck beside `index.html`.
+title slide, 4-9 content slides, and a final **Resources / Sources** slide,
+then stores the deck beside `index.html`.
 The first content slide is visual, and at least two thirds of the content
 slides are editable diagrams, comparisons, or card grids. Feature grids,
 recommendations, trade-offs, and production caveats become separate native
@@ -138,6 +139,15 @@ flattened into a single summary. Tone-colored card outlines stay aligned to
 their rounded cards without separate top-accent strips. When the HTML presents
 interactive states or progressive steps, adjacent slides represent those
 states; PowerPoint animation is not generated.
+Only the title slide carries the generated-by/artifact footer. The final slide
+uses the validated source titles and URLs as a standalone, numbered
+bibliography; content slides have no footer.
+For newly generated pages, **Build PowerPoint** uses the embedded presentation
+plan and remains available even if the displayed GitHub authentication status
+changes afterward. Legacy pages without a manifest still require Copilot
+fallback planning. A failed build shows the last completed stage and the full
+exception chain in a selectable error panel instead of replacing it with a
+later progress message.
 PowerPoint decks use the selected presentation theme. The default is
 **Professional Light**, optimized for projection, printing, and document
 sharing.
@@ -209,7 +219,7 @@ mappings, and instructions for adding themes.
 
 ## Security model
 
-Model output is untrusted. Before saving a page, AzHST requires a complete HTML document and an interactive experience baseline: inline JavaScript, semantic controls, purposeful motion, and a `prefers-reduced-motion` fallback. It also limits document size, rejects external `src` and `href` references and remote CSS URLs, removes `<base>` and model-provided CSP elements, and injects a restrictive Content Security Policy. Azure icon placeholders accept only catalog keys, descriptive alt text, and no model-supplied `src`; AzHST substitutes a validated base64 SVG data URI. The desktop host blocks top-level navigation and new-window requests.
+Model output is untrusted. Before saving a page, AzHST requires a complete HTML document and an interactive experience baseline: inline JavaScript, semantic controls, purposeful motion, and a `prefers-reduced-motion` fallback. It also limits document size, rejects external `src` references, non-source external `href` references, and remote CSS URLs, removes `<base>` and model-provided CSP elements, and injects a restrictive Content Security Policy. Azure icon placeholders accept only catalog keys, descriptive alt text, and no model-supplied `src`; AzHST substitutes a validated base64 SVG data URI. The visible Sources section must exactly match the manifest's approved Microsoft HTTPS references. The desktop host blocks other top-level navigation and new-window requests while opening approved source links in the default browser.
 
 Copilot never generates PowerPoint binary or Open XML markup. New pages carry
 their validated structured presentation plan in a non-executable JSON

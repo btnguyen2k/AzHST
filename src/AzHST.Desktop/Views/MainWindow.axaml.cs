@@ -34,6 +34,12 @@ public sealed partial class MainWindow : Window
         e.Cancel = true;
         if (DataContext is MainWindowViewModel blockedViewModel)
         {
+            if (e.Request.Scheme == Uri.UriSchemeHttps)
+            {
+                blockedViewModel.OpenExternalSource(e.Request);
+                return;
+            }
+
             blockedViewModel.StatusMessage = "Blocked navigation outside the generated local page.";
         }
     }
@@ -43,10 +49,19 @@ public sealed partial class MainWindow : Window
         WebViewNewWindowRequestedEventArgs e)
     {
         e.Handled = true;
-        if (DataContext is MainWindowViewModel viewModel)
+        if (e.Request is null
+            || DataContext is not MainWindowViewModel viewModel)
         {
-            viewModel.StatusMessage = "Blocked the generated page from opening a new window.";
+            return;
         }
+
+        if (e.Request.Scheme == Uri.UriSchemeHttps)
+        {
+            viewModel.OpenExternalSource(e.Request);
+            return;
+        }
+
+        viewModel.StatusMessage = "Blocked the generated page from opening a new window.";
     }
 
     private static bool IsSameLocalDocument(Uri request, Uri? allowedDocument)

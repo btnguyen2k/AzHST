@@ -160,12 +160,16 @@ Generated HTML is treated as untrusted input. The document processor:
 - requires descriptive icon alt text and rejects model-supplied icon sources
 - replaces each approved placeholder with the original SVG bytes as a base64 `data:` image
 - removes model-provided theme markers and injects authoritative CSS variables for the selected HTML theme
-- rejects external or active `src` and `href` schemes
+- rejects external or active `src` schemes and all external links except
+  manifest-matched source anchors on approved Microsoft documentation hosts
+- requires source links to use `target="_blank"` plus
+  `rel="noopener noreferrer"`
 - rejects remote CSS `url(...)` resources
 - removes `<base>` elements
 - replaces any model-provided Content Security Policy
 - injects a policy that blocks network connections, frames, forms, objects, navigation bases, and external resources
-- blocks WebView navigation away from the generated local file and handles new-window requests
+- blocks WebView navigation away from the generated local file, except that
+  validated source links open in the system browser
 
 Inline script is allowed because interaction is a core product requirement. The generation contract preserves concise text sections while requiring a prominent visual stage, question-appropriate stateful controls, purposeful motion, visible state, keyboard operation, and a reduced-motion equivalent. The injected policy still blocks script-initiated network access. A future release can add a stricter HTML parser and an explicit "interactive content" setting.
 
@@ -194,10 +198,19 @@ PresentationML. New HTML visualizations contain a non-executable JSON
 presentation manifest generated with the visible page. It is the authoritative
 shared narrative for page and deck: parent sections, nested headings,
 explanatory paragraphs, callouts, nodes, relationships, interactive states,
-scenarios, recommendations, and caveats use the same wording and sequence.
+scenarios, recommendations, caveats, and sources use the same wording and
+sequence.
 `GeneratedHtmlDocumentProcessor` requires this manifest, and
 `CopilotVisualizationClient` returns it directly for validation and rendering
 without a second planning model call.
+
+The Desktop enables PowerPoint generation whenever the current preview context
+is available; it does not require the current authentication flag for the
+manifest-backed local path. Legacy fallback planning still uses the GitHub
+Copilot SDK. SDK startup, session, model, and response failures are wrapped as
+presentation errors, and the UI preserves the last progress stage plus nested
+exception messages in a selectable error panel. Operation-scoped progress
+callbacks cannot overwrite a final error after the command completes.
 
 Legacy saved pages without a manifest remain supported.
 `HtmlPresentationOutlineBuilder` parses their secured in-memory HTML with
@@ -228,12 +241,14 @@ prohibit them.
   centered incomplete grid rows
 - tone-colored card outlines without detached top-accent strips
 - original Azure SVG icon data embedded in the package
-- artifact ID, slide numbers, source names, and production-validation guidance
+- a generated-by/artifact footer on the title slide only
+- a final editable, standalone `Resources / Sources` slide presenting source
+  titles and URLs as a compact numbered bibliography
 
 Connector labels are optional and appear only when the text fits safely in a
 horizontal route segment. Only the final segment of a multi-segment route has
-an arrowhead. Text boxes use native DrawingML automatic fitting, and the
-artifact footer reserves enough width to remain on one line.
+an arrowhead. Text boxes use native DrawingML automatic fitting. Content and
+source slides deliberately contain no footer.
 
 Interactive HTML states, request paths, or progressive steps are represented
 as adjacent visual slides. The current renderer deliberately does not emit

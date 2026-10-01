@@ -43,6 +43,11 @@ public sealed class GeneratePresentationUseCaseTests
         Assert.Equal(
             "Important: frontend and backend TLS are separate.",
             builder.Plan.Slides[0].Callout);
+        var source = Assert.Single(builder.Plan.Sources);
+        Assert.Equal("Application Gateway documentation", source.Title);
+        Assert.Equal(
+            "https://learn.microsoft.com/azure/application-gateway/",
+            source.Url);
         Assert.Equal("cards", builder.Plan.Slides[1].Kind);
         Assert.Equal(builder.Artifact, result);
     }
@@ -66,6 +71,29 @@ public sealed class GeneratePresentationUseCaseTests
             });
 
         Assert.Equal("gpt-5", planner.Model);
+    }
+
+    [Fact]
+    public async Task ExecuteAsync_PropagatesPlannerFailureWithoutBuilding()
+    {
+        var expected = new PresentationGenerationException(
+            "The GitHub Copilot SDK could not plan the presentation.",
+            new InvalidOperationException("The selected model is unavailable."));
+        var builder = new StubBuilder([]);
+        var useCase = new GeneratePresentationUseCase(
+            new ThrowingPlanner(expected),
+            builder,
+            new StubAzureIconCatalog("networking/app-gateway"),
+            new StubOutputThemeCatalog());
+
+        var actual = await Assert.ThrowsAsync<PresentationGenerationException>(
+            () => useCase.ExecuteAsync(
+                "Explain Azure Application Gateway",
+                CreateVisualization(),
+                new AppSettings()));
+
+        Assert.Same(expected, actual);
+        Assert.Null(builder.Plan);
     }
 
     [Fact]
@@ -129,6 +157,49 @@ public sealed class GeneratePresentationUseCaseTests
         Assert.Contains(
             "node detail exceeds 220 characters",
             exception.Message);
+    }
+
+    [Fact]
+    public async Task ExecuteAsync_RejectsUnapprovedSourceUrl()
+    {
+        var plan = CreateValidPlan();
+        plan.Sources[0].Url = "https://example.com/application-gateway";
+        var useCase = new GeneratePresentationUseCase(
+            new StubPlanner(plan, []),
+            new StubBuilder([]),
+            new StubAzureIconCatalog("networking/app-gateway"),
+            new StubOutputThemeCatalog());
+
+        var exception = await Assert.ThrowsAsync<PresentationGenerationException>(
+            () => useCase.ExecuteAsync(
+                "Explain Azure Application Gateway",
+                CreateVisualization(),
+                new AppSettings()));
+
+        Assert.Contains("approved Microsoft HTTPS URL", exception.Message);
+    }
+
+    [Fact]
+    public async Task ExecuteAsync_PreservesLegacySlideSourceNames()
+    {
+        var plan = CreateValidPlan();
+        plan.Sources = [];
+        plan.Slides[0].Sources = ["Microsoft Learn"];
+        var builder = new StubBuilder([]);
+        var useCase = new GeneratePresentationUseCase(
+            new StubPlanner(plan, []),
+            builder,
+            new StubAzureIconCatalog("networking/app-gateway"),
+            new StubOutputThemeCatalog());
+
+        await useCase.ExecuteAsync(
+            "Explain Azure Application Gateway",
+            CreateVisualization(),
+            new AppSettings());
+
+        var source = Assert.Single(builder.Plan!.Sources);
+        Assert.Equal("Microsoft Learn", source.Title);
+        Assert.Equal(string.Empty, source.Url);
     }
 
     [Fact]
@@ -358,6 +429,15 @@ public sealed class GeneratePresentationUseCaseTests
         {
             Title = "Azure Application Gateway",
             Subtitle = "Request routing and protection",
+            Sources =
+            [
+                new PresentationSourcePlan
+                {
+                    Title = "Application Gateway documentation",
+                    Url =
+                        "https://learn.microsoft.com/azure/application-gateway/",
+                },
+            ],
             Slides =
             [
                 new PresentationSlidePlan
@@ -509,6 +589,24 @@ public sealed class GeneratePresentationUseCaseTests
             Model = model;
             Visualization = visualization;
             return Task.FromResult(plan);
+        }
+    }
+
+    private sealed class ThrowingPlanner(
+        PresentationGenerationException exception)
+        : ICopilotPresentationPlanner
+    {
+        public Task<PresentationPlan> CreatePresentationPlanAsync(
+            string query,
+            string model,
+            VisualizationArtifact visualization,
+            IProgress<GenerationProgress>? progress = null,
+            CancellationToken cancellationToken = default)
+        {
+            progress?.Report(new GenerationProgress(
+                GenerationStage.PlanningPresentation,
+                "Planning PowerPoint slides..."));
+            return Task.FromException<PresentationPlan>(exception);
         }
     }
 

@@ -75,6 +75,7 @@ public sealed class GeneratedHtmlDocumentProcessorTests
 
     [Theory]
     [InlineData("""<script src="https://example.com/app.js"></script>""")]
+    [InlineData("""<a href="https://example.com">Open</a>""")]
     [InlineData("""<a href="javascript:alert(1)">Open</a>""")]
     [InlineData("""<style>.hero { background: url(//example.com/image.png); }</style>""")]
     public void Process_RejectsExternalOrActiveReferences(string unsafeMarkup)
@@ -85,6 +86,67 @@ public sealed class GeneratedHtmlDocumentProcessorTests
             () => _processor.Process(response));
 
         Assert.Contains("external content", exception.Message);
+    }
+
+    [Fact]
+    public void Process_PreservesValidatedClickableSourceLink()
+    {
+        var result = _processor.Process(CreateDocument());
+
+        Assert.Contains(
+            """
+            <a data-azh-source href="https://learn.microsoft.com/azure/" target="_blank" rel="noopener noreferrer">Azure documentation</a>
+            """,
+            result);
+    }
+
+    [Fact]
+    public void Process_RejectsSourceLinkWhoseTitleDoesNotMatchManifest()
+    {
+        var response = CreateDocument().Replace(
+            ">Azure documentation</a>",
+            ">Different source title</a>",
+            StringComparison.Ordinal);
+
+        var exception = Assert.Throws<VisualizationGenerationException>(
+            () => _processor.Process(response));
+
+        Assert.Contains("mismatched link", exception.Message);
+    }
+
+    [Fact]
+    public void Process_RejectsSourceLinksInDifferentOrderFromManifest()
+    {
+        const string firstLink =
+            """<a data-azh-source href="https://learn.microsoft.com/azure/" target="_blank" rel="noopener noreferrer">Azure documentation</a>""";
+        const string secondLink =
+            """<a data-azh-source href="https://learn.microsoft.com/azure/architecture/" target="_blank" rel="noopener noreferrer">Azure Architecture Center</a>""";
+        var response = CreateDocument()
+            .Replace(firstLink, "__FIRST_SOURCE_LINK__", StringComparison.Ordinal)
+            .Replace(secondLink, firstLink, StringComparison.Ordinal)
+            .Replace(
+                "__FIRST_SOURCE_LINK__",
+                secondLink,
+                StringComparison.Ordinal);
+
+        var exception = Assert.Throws<VisualizationGenerationException>(
+            () => _processor.Process(response));
+
+        Assert.Contains("mismatched link", exception.Message);
+    }
+
+    [Fact]
+    public void Process_RejectsSourceOutsideApprovedDocumentationHosts()
+    {
+        var response = CreateDocument().Replace(
+            "https://learn.microsoft.com/azure/",
+            "https://example.com/azure/",
+            StringComparison.Ordinal);
+
+        var exception = Assert.Throws<VisualizationGenerationException>(
+            () => _processor.Process(response));
+
+        Assert.Contains("invalid or duplicate presentation source", exception.Message);
     }
 
     [Fact]
@@ -298,6 +360,11 @@ public sealed class GeneratedHtmlDocumentProcessorTests
                 {{control}}
                 <div class="node">Safe visualization</div>
                 {{bodyMarkup}}
+                <section id="sources">
+                  <h2>Sources</h2>
+                  <a data-azh-source href="https://learn.microsoft.com/azure/" target="_blank" rel="noopener noreferrer">Azure documentation</a>
+                  <a data-azh-source href="https://learn.microsoft.com/azure/architecture/" target="_blank" rel="noopener noreferrer">Azure Architecture Center</a>
+                </section>
               </main>
               {{presentationManifest}}
               {{script}}
@@ -313,6 +380,16 @@ public sealed class GeneratedHtmlDocumentProcessorTests
             {
               "title": "Safe visualization",
               "subtitle": "A shared HTML and PowerPoint narrative",
+              "sources": [
+                {
+                  "title": "Azure documentation",
+                  "url": "https://learn.microsoft.com/azure/"
+                },
+                {
+                  "title": "Azure Architecture Center",
+                  "url": "https://learn.microsoft.com/azure/architecture/"
+                }
+              ],
               "slides": [
                 {
                   "kind": "diagram",

@@ -35,6 +35,10 @@ public sealed class HtmlPresentationOutlineBuilderTests
                   <tr><th>Option</th><th>Use when</th></tr>
                   <tr><td>WAF_v2</td><td>Autoscaling is required</td></tr>
                 </table>
+                <section>
+                  <h2>Sources</h2>
+                  <a href="https://learn.microsoft.com/azure/application-gateway/">Application Gateway documentation</a>
+                </section>
               </main>
               <script>
                 const steps = [
@@ -71,6 +75,9 @@ public sealed class HtmlPresentationOutlineBuilderTests
             outline);
         Assert.Contains("TABLE ROW: Option | Use when", outline);
         Assert.Contains("TABLE ROW: WAF_v2 | Autoscaling is required", outline);
+        Assert.Contains(
+            "LINK: Application Gateway documentation | https://learn.microsoft.com/azure/application-gateway/",
+            outline);
         Assert.Contains(
             "INTERACTION STEP: listener | Listener accepts TLS | The listener terminates the client TLS connection.",
             outline);

@@ -6,7 +6,16 @@ public sealed class PresentationPlan
 
     public string Subtitle { get; set; } = string.Empty;
 
+    public List<PresentationSourcePlan> Sources { get; set; } = [];
+
     public List<PresentationSlidePlan> Slides { get; set; } = [];
+}
+
+public sealed class PresentationSourcePlan
+{
+    public string Title { get; set; } = string.Empty;
+
+    public string Url { get; set; } = string.Empty;
 }
 
 public sealed class PresentationSlidePlan

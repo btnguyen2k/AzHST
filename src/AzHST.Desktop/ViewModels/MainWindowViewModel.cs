@@ -57,6 +57,10 @@ public sealed partial class MainWindowViewModel : ObservableObject
     private string _statusMessage = "Ask a question to create an Azure visualization.";
 
     [ObservableProperty]
+    [NotifyPropertyChangedFor(nameof(HasOperationError))]
+    private string _operationErrorMessage = string.Empty;
+
+    [ObservableProperty]
     [NotifyPropertyChangedFor(nameof(HasPreview))]
     [NotifyPropertyChangedFor(nameof(HasEmbeddedPreview))]
     [NotifyPropertyChangedFor(nameof(ShowPreviewFallback))]
@@ -126,6 +130,9 @@ public sealed partial class MainWindowViewModel : ObservableObject
     public bool ShowWelcome => !HasPreview;
 
     public bool IsIdle => !IsBusy;
+
+    public bool HasOperationError =>
+        !string.IsNullOrWhiteSpace(OperationErrorMessage);
 
     public ObservableCollection<SampleQueryOptionViewModel> SampleQueries { get; } = [];
 
@@ -288,9 +295,22 @@ public sealed partial class MainWindowViewModel : ObservableObject
     {
         IsBusy = true;
         IsGenerating = true;
+        OperationErrorMessage = string.Empty;
+        var progressEnabled = 1;
+        var lastProgressMessage = "Preparing visualization generation...";
+        StatusMessage = lastProgressMessage;
         var submittedQuery = Query;
         var progress = new Progress<GenerationProgress>(
-            update => StatusMessage = update.Message);
+            update =>
+            {
+                if (Volatile.Read(ref progressEnabled) == 0)
+                {
+                    return;
+                }
+
+                lastProgressMessage = update.Message;
+                StatusMessage = update.Message;
+            });
 
         try
         {
@@ -307,6 +327,7 @@ public sealed partial class MainWindowViewModel : ObservableObject
             PresentationFilePath = null;
             PresentationUri = null;
             BuildPowerPointCommand.NotifyCanExecuteChanged();
+            Interlocked.Exchange(ref progressEnabled, 0);
 
             if (Settings.OpenResultsInExternalBrowser || !_webViewAvailability.IsAvailable)
             {
@@ -315,21 +336,33 @@ public sealed partial class MainWindowViewModel : ObservableObject
                     ? "Visualization ready and opened in the default browser."
                     : "Embedded preview is unavailable; opened the visualization in the default browser.";
             }
+            else
+            {
+                StatusMessage = "Visualization ready in the embedded preview.";
+            }
         }
         catch (OperationCanceledException)
         {
+            Interlocked.Exchange(ref progressEnabled, 0);
             StatusMessage = "Generation cancelled.";
         }
         catch (InvalidVisualizationQueryException exception)
         {
+            Interlocked.Exchange(ref progressEnabled, 0);
             StatusMessage = exception.Message;
         }
         catch (Exception exception)
         {
-            StatusMessage = $"Generation failed: {exception.Message}";
+            Interlocked.Exchange(ref progressEnabled, 0);
+            StatusMessage = "Visualization generation failed. Review the error below and retry.";
+            OperationErrorMessage = BuildOperationError(
+                "Visualization generation failed.",
+                lastProgressMessage,
+                exception);
         }
         finally
         {
+            Interlocked.Exchange(ref progressEnabled, 0);
             IsGenerating = false;
             IsBusy = false;
         }
@@ -338,9 +371,7 @@ public sealed partial class MainWindowViewModel : ObservableObject
     private bool CanBuildPowerPoint()
     {
         return !IsBusy
-            && IsAuthenticated
-            && _visualizationArtifact is not null
-            && _generatedQuery.Length > 0;
+            && HasPreview;
     }
 
     [RelayCommand(CanExecute = nameof(CanBuildPowerPoint), IncludeCancelCommand = true)]
@@ -348,13 +379,30 @@ public sealed partial class MainWindowViewModel : ObservableObject
     {
         if (_visualizationArtifact is null || _generatedQuery.Length == 0)
         {
+            StatusMessage =
+                "PowerPoint generation could not start. Review the error below.";
+            OperationErrorMessage =
+                "The current visualization context is unavailable. Generate the visualization again, then retry Build PowerPoint.";
             return;
         }
 
         IsBusy = true;
         IsBuildingPresentation = true;
+        OperationErrorMessage = string.Empty;
+        var progressEnabled = 1;
+        var lastProgressMessage = "Preparing PowerPoint generation...";
+        StatusMessage = lastProgressMessage;
         var progress = new Progress<GenerationProgress>(
-            update => StatusMessage = update.Message);
+            update =>
+            {
+                if (Volatile.Read(ref progressEnabled) == 0)
+                {
+                    return;
+                }
+
+                lastProgressMessage = update.Message;
+                StatusMessage = update.Message;
+            });
 
         try
         {
@@ -367,23 +415,71 @@ public sealed partial class MainWindowViewModel : ObservableObject
 
             PresentationFilePath = artifact.FilePath;
             PresentationUri = artifact.FileUri;
+            Interlocked.Exchange(ref progressEnabled, 0);
             StatusMessage =
                 $"PowerPoint ready with {artifact.SlideCount} slides. Copy its path or open its folder below.";
         }
         catch (OperationCanceledException)
         {
+            Interlocked.Exchange(ref progressEnabled, 0);
             StatusMessage = "PowerPoint generation cancelled.";
         }
         catch (Exception exception)
         {
+            Interlocked.Exchange(ref progressEnabled, 0);
             StatusMessage =
-                $"PowerPoint generation failed: {exception.Message}";
+                "PowerPoint generation failed. Review the error below and retry.";
+            OperationErrorMessage = BuildOperationError(
+                "PowerPoint generation failed.",
+                lastProgressMessage,
+                exception);
         }
         finally
         {
+            Interlocked.Exchange(ref progressEnabled, 0);
             IsBuildingPresentation = false;
             IsBusy = false;
         }
+    }
+
+    private static string BuildOperationError(
+        string heading,
+        string lastProgressMessage,
+        Exception exception)
+    {
+        var messages = new List<string>();
+        var pending = new Queue<Exception>();
+        pending.Enqueue(exception);
+
+        while (pending.Count > 0 && messages.Count < 6)
+        {
+            var current = pending.Dequeue();
+            var message = current.Message.Trim();
+            if (message.Length > 0
+                && !messages.Contains(
+                    message,
+                    StringComparer.Ordinal))
+            {
+                messages.Add(message);
+            }
+
+            if (current is AggregateException aggregateException)
+            {
+                foreach (var innerException in aggregateException.InnerExceptions)
+                {
+                    pending.Enqueue(innerException);
+                }
+            }
+            else if (current.InnerException is not null)
+            {
+                pending.Enqueue(current.InnerException);
+            }
+        }
+
+        var details = messages.Count > 0
+            ? string.Join(Environment.NewLine, messages)
+            : exception.GetType().Name;
+        return $"{heading}{Environment.NewLine}Last step: {lastProgressMessage}{Environment.NewLine}{details}";
     }
 
     private bool CanRunUiAction()
@@ -549,6 +645,31 @@ public sealed partial class MainWindowViewModel : ObservableObject
         return !IsBusy && PreviewUri is not null;
     }
 
+    public void OpenExternalSource(Uri uri)
+    {
+        ArgumentNullException.ThrowIfNull(uri);
+
+        if (!PresentationSourcePolicy.TryNormalizeUrl(
+                uri.AbsoluteUri,
+                out var normalizedUrl))
+        {
+            StatusMessage =
+                "Blocked a source link outside the approved documentation hosts.";
+            return;
+        }
+
+        try
+        {
+            _browser.Open(new Uri(normalizedUrl, UriKind.Absolute));
+            StatusMessage = "Opened the source in the default browser.";
+        }
+        catch (Exception exception)
+        {
+            StatusMessage =
+                $"Could not open the source link: {exception.Message}";
+        }
+    }
+
     [RelayCommand(CanExecute = nameof(CanOpenExternal))]
     private void OpenExternal()
     {
@@ -674,6 +795,7 @@ public sealed partial class MainWindowViewModel : ObservableObject
     partial void OnPreviewUriChanged(Uri? value)
     {
         OpenExternalCommand.NotifyCanExecuteChanged();
+        BuildPowerPointCommand.NotifyCanExecuteChanged();
         GoHomeCommand.NotifyCanExecuteChanged();
     }
 

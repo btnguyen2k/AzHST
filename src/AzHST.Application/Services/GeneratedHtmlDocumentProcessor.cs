@@ -51,14 +51,19 @@ public sealed partial class GeneratedHtmlDocumentProcessor
                 "Copilot did not return a complete HTML document. Try generating the visualization again.");
         }
 
-        if (ExternalReferenceRegex().IsMatch(html) || ExternalCssUrlRegex().IsMatch(html))
+        var plan = ValidatePresentationNarrative(html);
+        ValidateSourceLinks(html, plan);
+        var referenceScanHtml = SourceAnchorOpeningTagRegex().Replace(
+            html,
+            "<a>");
+        if (ExternalReferenceRegex().IsMatch(referenceScanHtml)
+            || ExternalCssUrlRegex().IsMatch(html))
         {
             throw new VisualizationGenerationException(
                 "The generated page references external content. Regenerate it as a self-contained visualization.");
         }
 
         ValidateExperienceContract(html);
-        ValidatePresentationNarrative(html);
 
         html = ResolveAzureIconPlaceholders(html);
         if (html.Length > MaximumDocumentLength)
@@ -87,11 +92,11 @@ public sealed partial class GeneratedHtmlDocumentProcessor
         return html;
     }
 
-    private static void ValidatePresentationNarrative(string html)
+    private static PresentationPlan ValidatePresentationNarrative(string html)
     {
         try
         {
-            _ = PresentationPlanManifest.ExtractRequired(html);
+            return PresentationPlanManifest.ExtractRequired(html);
         }
         catch (InvalidDataException exception)
         {
@@ -99,6 +104,105 @@ public sealed partial class GeneratedHtmlDocumentProcessor
                 "Copilot returned a page without a valid PowerPoint narrative. Try generating the visualization again.",
                 exception);
         }
+    }
+
+    private static void ValidateSourceLinks(
+        string html,
+        PresentationPlan plan)
+    {
+        var sources = plan.Sources ?? [];
+        if (sources.Count is < 1 or > PresentationSourcePolicy.MaximumSourceCount)
+        {
+            throw new VisualizationGenerationException(
+                $"The generated page must contain 1-{PresentationSourcePolicy.MaximumSourceCount} linked sources.");
+        }
+
+        var expectedSources =
+            new List<KeyValuePair<string, string>>(sources.Count);
+        var expectedUrls = new HashSet<string>(
+            StringComparer.OrdinalIgnoreCase);
+        foreach (var source in sources)
+        {
+            if (source is null
+                || string.IsNullOrWhiteSpace(source.Title)
+                || source.Title.Trim().Length
+                    > PresentationSourcePolicy.MaximumTitleLength
+                || !PresentationSourcePolicy.TryNormalizeUrl(
+                    source.Url,
+                    out var normalizedUrl)
+                || !expectedUrls.Add(normalizedUrl))
+            {
+                throw new VisualizationGenerationException(
+                    "The generated page contains an invalid or duplicate presentation source.");
+            }
+
+            expectedSources.Add(new KeyValuePair<string, string>(
+                normalizedUrl,
+                source.Title.Trim()));
+        }
+
+        var linkedSourceCount = 0;
+        foreach (Match anchor in AnchorElementRegex().Matches(html))
+        {
+            var attributes = anchor.Groups["attributes"].Value;
+            if (!SourceMarkerAttributeRegex().IsMatch(attributes))
+            {
+                continue;
+            }
+
+            var href = HrefAttributeRegex().Match(attributes);
+            var rel = RelAttributeRegex().Match(attributes);
+            var relTokens = rel.Success
+                ? WebUtility.HtmlDecode(rel.Groups["value"].Value)
+                    .Split(
+                        (char[]?)null,
+                        StringSplitOptions.RemoveEmptyEntries
+                            | StringSplitOptions.TrimEntries)
+                    .ToHashSet(StringComparer.OrdinalIgnoreCase)
+                : [];
+            var sourceTitle = NormalizeAnchorText(
+                anchor.Groups["content"].Value);
+
+            if (!href.Success
+                || !TargetBlankAttributeRegex().IsMatch(attributes)
+                || !relTokens.Contains("noopener")
+                || !relTokens.Contains("noreferrer")
+                || !PresentationSourcePolicy.TryNormalizeUrl(
+                    WebUtility.HtmlDecode(href.Groups["value"].Value),
+                    out var normalizedUrl)
+                || linkedSourceCount >= expectedSources.Count
+                || !string.Equals(
+                    normalizedUrl,
+                    expectedSources[linkedSourceCount].Key,
+                    StringComparison.OrdinalIgnoreCase)
+                || !string.Equals(
+                    sourceTitle,
+                    expectedSources[linkedSourceCount].Value,
+                    StringComparison.Ordinal))
+            {
+                throw new VisualizationGenerationException(
+                    "The generated Sources section contains an invalid or mismatched link.");
+            }
+
+            linkedSourceCount++;
+        }
+
+        if (SourceAnchorOpeningTagRegex().Matches(html).Count
+                != linkedSourceCount
+            || linkedSourceCount != expectedSources.Count)
+        {
+            throw new VisualizationGenerationException(
+                "The generated Sources section does not match the presentation sources.");
+        }
+    }
+
+    private static string NormalizeAnchorText(string value)
+    {
+        var text = HtmlElementTagRegex().Replace(value, " ");
+        return WhitespaceRegex().Replace(
+                WebUtility.HtmlDecode(text),
+                " ")
+            .Trim();
     }
 
     private static void ValidateExperienceContract(string html)
@@ -381,9 +485,49 @@ public sealed partial class GeneratedHtmlDocumentProcessor
     private static partial Regex AltAttributeRegex();
 
     [GeneratedRegex(
-        """(?:src|href)\s*=\s*["']\s*(?:https?:|file:|ftp:|//|javascript:)""",
+        """(?:src|href)\s*=\s*["']\s*(?:https?:|file:|ftp:|data:|//|javascript:|vbscript:)""",
         RegexOptions.IgnoreCase | RegexOptions.CultureInvariant)]
     private static partial Regex ExternalReferenceRegex();
+
+    [GeneratedRegex(
+        """<a\b(?<attributes>[^>]*)>(?<content>[\s\S]*?)</a\s*>""",
+        RegexOptions.IgnoreCase | RegexOptions.CultureInvariant)]
+    private static partial Regex AnchorElementRegex();
+
+    [GeneratedRegex(
+        """<a\b(?=[^>]*\bdata-azh-source\b)[^>]*>""",
+        RegexOptions.IgnoreCase | RegexOptions.CultureInvariant)]
+    private static partial Regex SourceAnchorOpeningTagRegex();
+
+    [GeneratedRegex(
+        """\bdata-azh-source(?:\s*=\s*(?:["'][^"']*["']|[^\s>]+))?""",
+        RegexOptions.IgnoreCase | RegexOptions.CultureInvariant)]
+    private static partial Regex SourceMarkerAttributeRegex();
+
+    [GeneratedRegex(
+        """\bhref\s*=\s*(?<quote>["'])(?<value>[^"']*)\k<quote>""",
+        RegexOptions.IgnoreCase | RegexOptions.CultureInvariant)]
+    private static partial Regex HrefAttributeRegex();
+
+    [GeneratedRegex(
+        """\btarget\s*=\s*(?<quote>["'])_blank\k<quote>""",
+        RegexOptions.IgnoreCase | RegexOptions.CultureInvariant)]
+    private static partial Regex TargetBlankAttributeRegex();
+
+    [GeneratedRegex(
+        """\brel\s*=\s*(?<quote>["'])(?<value>[^"']*)\k<quote>""",
+        RegexOptions.IgnoreCase | RegexOptions.CultureInvariant)]
+    private static partial Regex RelAttributeRegex();
+
+    [GeneratedRegex(
+        """<[^>]+>""",
+        RegexOptions.CultureInvariant)]
+    private static partial Regex HtmlElementTagRegex();
+
+    [GeneratedRegex(
+        """\s+""",
+        RegexOptions.CultureInvariant)]
+    private static partial Regex WhitespaceRegex();
 
     [GeneratedRegex(
         """url\(\s*["']?\s*(?:https?:|file:|ftp:|//)""",
