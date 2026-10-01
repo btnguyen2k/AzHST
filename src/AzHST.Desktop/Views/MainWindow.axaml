@@ -13,6 +13,18 @@
     Icon="/Assets/azhst-icon.ico"
     Background="#0B1020">
 
+  <Window.Resources>
+    <StreamGeometry x:Key="AccountIcon">
+      M12,12 C14.761,12 17,9.761 17,7 C17,4.239 14.761,2 12,2 C9.239,2 7,4.239 7,7 C7,9.761 9.239,12 12,12 Z M12,14 C6.477,14 2,16.686 2,20 L2,22 L22,22 L22,20 C22,16.686 17.523,14 12,14 Z
+    </StreamGeometry>
+    <StreamGeometry x:Key="SettingsIcon">
+      M2,4 L10,4 L10,6 L2,6 Z M14,2 L18,2 L18,8 L14,8 Z M18,4 L22,4 L22,6 L18,6 Z M2,11 L5,11 L5,13 L2,13 Z M9,9 L13,9 L13,15 L9,15 Z M13,11 L22,11 L22,13 L13,13 Z M2,18 L13,18 L13,20 L2,20 Z M17,16 L21,16 L21,22 L17,22 Z M21,18 L22,18 L22,20 L21,20 Z
+    </StreamGeometry>
+    <StreamGeometry x:Key="GenerateIcon">
+      M14,2 L16.2,8.8 L23,11 L16.2,13.2 L14,20 L11.8,13.2 L5,11 L11.8,8.8 Z M4,14 L5.2,17.8 L9,19 L5.2,20.2 L4,24 L2.8,20.2 L0,19 L2.8,17.8 Z
+    </StreamGeometry>
+  </Window.Resources>
+
   <Window.Styles>
     <Style Selector="Button">
       <Setter Property="MinHeight" Value="40" />
@@ -93,9 +105,22 @@
             </StackPanel>
           </Border>
           <Button
+              AutomationProperties.Name="{Binding GitHubSignInButtonText}"
               Classes="primary"
-              Command="{Binding GitHubSignInCommand}"
-              Content="{Binding GitHubSignInButtonText}" />
+              Command="{Binding GitHubSignInCommand}">
+            <StackPanel
+                HorizontalAlignment="Center"
+                Orientation="Horizontal"
+                Spacing="8">
+              <PathIcon
+                  Width="16"
+                  Height="16"
+                  Data="{StaticResource AccountIcon}" />
+              <TextBlock
+                  VerticalAlignment="Center"
+                  Text="{Binding GitHubSignInButtonText}" />
+            </StackPanel>
+          </Button>
 
           <Border Height="1" Margin="0,14" Background="#253454" />
 
@@ -153,9 +178,22 @@
             </StackPanel>
           </Border>
           <Button
+              AutomationProperties.Name="Settings"
               Classes="secondary"
-              Command="{Binding OpenSettingsCommand}"
-              Content="Settings" />
+              Command="{Binding OpenSettingsCommand}">
+            <StackPanel
+                HorizontalAlignment="Center"
+                Orientation="Horizontal"
+                Spacing="8">
+              <PathIcon
+                  Width="16"
+                  Height="16"
+                  Data="{StaticResource SettingsIcon}" />
+              <TextBlock
+                  VerticalAlignment="Center"
+                  Text="Settings" />
+            </StackPanel>
+          </Button>
         </StackPanel>
 
         <StackPanel Grid.Row="2" Spacing="8">
@@ -407,10 +445,23 @@
                 IsVisible="{Binding IsBuildingPresentation}" />
             <Button
                 AutomationProperties.AutomationId="GenerateButton"
+                AutomationProperties.Name="Generate visualization"
                 Grid.Column="2"
                 Classes="primary"
-                Command="{Binding GenerateCommand}"
-                Content="Generate visualization" />
+                Command="{Binding GenerateCommand}">
+              <StackPanel
+                  HorizontalAlignment="Center"
+                  Orientation="Horizontal"
+                  Spacing="8">
+                <PathIcon
+                    Width="16"
+                    Height="16"
+                    Data="{StaticResource GenerateIcon}" />
+                <TextBlock
+                    VerticalAlignment="Center"
+                    Text="Generate visualization" />
+              </StackPanel>
+            </Button>
           </Grid>
           <ProgressBar
               Grid.Row="2"
