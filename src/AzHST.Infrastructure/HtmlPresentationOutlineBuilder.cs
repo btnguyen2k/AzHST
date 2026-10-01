@@ -1,15 +1,17 @@
 using System.Text;
+using System.Text.Json;
+using System.Text.RegularExpressions;
 using AngleSharp.Dom;
 using AngleSharp.Html.Parser;
 
 namespace AzHST.Infrastructure;
 
-public sealed class HtmlPresentationOutlineBuilder
+public sealed partial class HtmlPresentationOutlineBuilder
 {
     public const int MaximumOutlineLength = 60_000;
 
     private static readonly HashSet<string> IgnoredElements = new(
-        ["script", "style", "noscript", "template"],
+        ["style", "noscript", "template"],
         StringComparer.OrdinalIgnoreCase);
 
     private static readonly HashSet<string> ContainerElements = new(
@@ -62,8 +64,17 @@ public sealed class HtmlPresentationOutlineBuilder
             return;
         }
 
+        if (element.HasAttribute("data-node"))
+        {
+            AddVisualNode(element, outline);
+            return;
+        }
+
         switch (element.LocalName)
         {
+            case "script":
+                AddInteractionNarrative(element, outline);
+                return;
             case "h1":
             case "h2":
             case "h3":
@@ -91,9 +102,11 @@ public sealed class HtmlPresentationOutlineBuilder
                 AddDiagramLabels(element, outline);
                 return;
             case "img":
-                outline.Add("IMAGE", element.GetAttribute("alt"));
+                AddImage(element, outline);
                 return;
             case "button":
+                AddControl(element, outline);
+                return;
             case "summary":
             case "label":
                 outline.Add("CONTROL", element.TextContent);
@@ -112,10 +125,7 @@ public sealed class HtmlPresentationOutlineBuilder
 
         if (ContainerElements.Contains(element.LocalName))
         {
-            outline.Add(
-                "SECTION",
-                element.GetAttribute("aria-label")
-                    ?? element.GetAttribute("data-title"));
+            outline.Add("SECTION", ResolveContainerLabel(element));
         }
 
         if (element.Children.Length == 0)
@@ -131,6 +141,120 @@ public sealed class HtmlPresentationOutlineBuilder
             {
                 return;
             }
+        }
+    }
+
+    private static void AddVisualNode(
+        IElement element,
+        OutlineCollector outline)
+    {
+        var values = new[]
+        {
+            element.GetAttribute("data-node"),
+            element.QuerySelector("strong")?.TextContent
+                ?? element.GetAttribute("aria-label"),
+            element.QuerySelector("small")?.TextContent,
+            element.QuerySelector("img")?.GetAttribute(
+                "data-azure-icon-resolved")
+                ?? element.QuerySelector("img")?.GetAttribute(
+                    "data-azure-icon"),
+        }
+        .Select(Normalize)
+        .Where(value => value.Length > 0);
+
+        outline.Add("VISUAL NODE", string.Join(" | ", values));
+    }
+
+    private static void AddImage(
+        IElement element,
+        OutlineCollector outline)
+    {
+        var key = element.GetAttribute("data-azure-icon-resolved")
+            ?? element.GetAttribute("data-azure-icon");
+        var alt = element.GetAttribute("alt");
+        outline.Add(
+            "IMAGE",
+            string.IsNullOrWhiteSpace(key)
+                ? alt
+                : $"{key} | {alt}");
+    }
+
+    private static void AddControl(
+        IElement element,
+        OutlineCollector outline)
+    {
+        var choice = element.GetAttribute("data-choice");
+        var value = element.GetAttribute("data-value");
+        if (!string.IsNullOrWhiteSpace(choice)
+            && !string.IsNullOrWhiteSpace(value))
+        {
+            outline.Add(
+                "SCENARIO OPTION",
+                $"{choice}={value} | {element.TextContent}");
+            return;
+        }
+
+        outline.Add("CONTROL", element.TextContent);
+    }
+
+    private static string? ResolveContainerLabel(IElement element)
+    {
+        var label = element.GetAttribute("aria-label")
+            ?? element.GetAttribute("data-title");
+        if (!string.IsNullOrWhiteSpace(label))
+        {
+            return label;
+        }
+
+        var labelledBy = element.GetAttribute("aria-labelledby");
+        return string.IsNullOrWhiteSpace(labelledBy)
+            ? null
+            : element.Owner?.GetElementById(labelledBy)?.TextContent;
+    }
+
+    private static void AddInteractionNarrative(
+        IElement script,
+        OutlineCollector outline)
+    {
+        if (string.Equals(
+                script.GetAttribute("type"),
+                "application/json",
+                StringComparison.OrdinalIgnoreCase))
+        {
+            return;
+        }
+
+        var source = script.TextContent;
+        foreach (Match match in InteractionStepRegex().Matches(source))
+        {
+            var node = DecodeJavaScriptString(match.Groups["node"].Value);
+            var title = DecodeJavaScriptString(match.Groups["title"].Value);
+            var text = DecodeJavaScriptString(match.Groups["text"].Value);
+            outline.Add(
+                "INTERACTION STEP",
+                $"{node} | {title} | {text}");
+        }
+
+        foreach (Match match in DynamicTextRegex().Matches(source))
+        {
+            var text = DecodeJavaScriptString(match.Groups["text"].Value);
+            if (text.Length >= 20 && text.Contains(' '))
+            {
+                outline.Add("INTERACTION STATE", text);
+            }
+        }
+    }
+
+    private static string DecodeJavaScriptString(string value)
+    {
+        try
+        {
+            return JsonSerializer.Deserialize<string>($"\"{value}\"")
+                ?? string.Empty;
+        }
+        catch (JsonException)
+        {
+            return value;
         }
     }
 
@@ -180,6 +304,16 @@ public sealed class HtmlPresentationOutlineBuilder
                     [' ', '\t', '\r', '\n'],
                     StringSplitOptions.RemoveEmptyEntries));
     }
+
+    [GeneratedRegex(
+        """\{\s*node\s*:\s*"(?<node>(?:\\.|[^"\\])*)"\s*,\s*title\s*:\s*"(?<title>(?:\\.|[^"\\])*)"\s*,\s*text\s*:\s*"(?<text>(?:\\.|[^"\\])*)"\s*\}""",
+        RegexOptions.CultureInvariant)]
+    private static partial Regex InteractionStepRegex();
+
+    [GeneratedRegex(
+        "(?:textContent|innerText)\\s*=\\s*\"(?<text>(?:\\\\.|[^\"\\\\])*)\"",
+        RegexOptions.CultureInvariant)]
+    private static partial Regex DynamicTextRegex();
 
     private sealed class OutlineCollector(int maximumLength)
     {

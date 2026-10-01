@@ -143,6 +143,17 @@ public sealed class GeneratedHtmlDocumentProcessorTests
     }
 
     [Fact]
+    public void Process_RejectsPageWithoutPowerPointNarrative()
+    {
+        var response = CreateDocument(includePresentationManifest: false);
+
+        var exception = Assert.Throws<VisualizationGenerationException>(
+            () => _processor.Process(response));
+
+        Assert.Contains("PowerPoint narrative", exception.Message);
+    }
+
+    [Fact]
     public void Process_EmbedsApprovedAzureIconAsDataImage()
     {
         const string key = "networking/10076-application-gateways";
@@ -244,7 +255,8 @@ public sealed class GeneratedHtmlDocumentProcessorTests
         bool includeScript = true,
         bool includeControl = true,
         bool includeMotion = true,
-        bool includeReducedMotion = true)
+        bool includeReducedMotion = true,
+        bool includePresentationManifest = true)
     {
         var motion = includeMotion ? "transition: transform 200ms ease;" : string.Empty;
         var reducedMotion = includeReducedMotion
@@ -266,6 +278,9 @@ public sealed class GeneratedHtmlDocumentProcessorTests
               </script>
               """
             : string.Empty;
+        var presentationManifest = includePresentationManifest
+            ? CreatePresentationManifest()
+            : string.Empty;
 
         return $$"""
             <!doctype html>
@@ -284,9 +299,74 @@ public sealed class GeneratedHtmlDocumentProcessorTests
                 <div class="node">Safe visualization</div>
                 {{bodyMarkup}}
               </main>
+              {{presentationManifest}}
               {{script}}
             </body>
             </html>
+            """;
+    }
+
+    private static string CreatePresentationManifest()
+    {
+        return """
+            <script id="azh-presentation-plan" type="application/json">
+            {
+              "title": "Safe visualization",
+              "subtitle": "A shared HTML and PowerPoint narrative",
+              "slides": [
+                {
+                  "kind": "diagram",
+                  "title": "Request flow",
+                  "summary": "Follow the request.",
+                  "bullets": [],
+                  "nodes": [
+                    { "id": "source", "label": "Source", "detail": "Starts the request.", "iconKey": "", "tone": "neutral" },
+                    { "id": "target", "label": "Target", "detail": "Receives the request.", "iconKey": "", "tone": "primary" }
+                  ],
+                  "connections": [
+                    { "from": "source", "to": "target", "label": "request" }
+                  ],
+                  "sources": []
+                },
+                {
+                  "kind": "cards",
+                  "title": "Behavior",
+                  "summary": "Visible page behavior.",
+                  "bullets": [],
+                  "nodes": [
+                    { "id": "state-one", "label": "State one", "detail": "First visible state.", "iconKey": "", "tone": "primary" },
+                    { "id": "state-two", "label": "State two", "detail": "Second visible state.", "iconKey": "", "tone": "accent" }
+                  ],
+                  "connections": [],
+                  "sources": []
+                },
+                {
+                  "kind": "cards",
+                  "title": "Recommendations",
+                  "summary": "Visible recommendations.",
+                  "bullets": [],
+                  "nodes": [
+                    { "id": "recommendation-one", "label": "Recommendation one", "detail": "First recommendation.", "iconKey": "", "tone": "success" },
+                    { "id": "recommendation-two", "label": "Recommendation two", "detail": "Second recommendation.", "iconKey": "", "tone": "warning" }
+                  ],
+                  "connections": [],
+                  "sources": []
+                },
+                {
+                  "kind": "cards",
+                  "title": "Validate before production",
+                  "summary": "Confirm current details.",
+                  "bullets": [],
+                  "nodes": [
+                    { "id": "validation-one", "label": "Availability", "detail": "Confirm regional availability.", "iconKey": "", "tone": "warning" },
+                    { "id": "validation-two", "label": "Pricing", "detail": "Review current pricing.", "iconKey": "", "tone": "warning" }
+                  ],
+                  "connections": [],
+                  "sources": ["Microsoft Learn"]
+                }
+              ]
+            }
+            </script>
             """;
     }
 

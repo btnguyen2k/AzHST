@@ -190,30 +190,50 @@ materials, and documentation under the current
 ### PowerPoint output
 
 The application never asks the model to generate a binary file or
-PresentationML. `CopilotVisualizationClient` uses structured output to request
-a 4-9 content-slide plan. Before that request,
-`HtmlPresentationOutlineBuilder` parses the secured in-memory HTML with
-AngleSharp and preserves its visible page order: title, headings, paragraphs,
-list and definition items, table rows, image descriptions, controls, section
-labels, and SVG labels. Scripts, styles, templates, embedded image bytes, and
-other active content are excluded. Lines and total outline size are bounded
-before the text is sent to Copilot.
+PresentationML. New HTML visualizations contain a non-executable JSON
+presentation manifest generated with the visible page. It is the authoritative
+shared narrative for page and deck: parent sections, nested headings,
+explanatory paragraphs, callouts, nodes, relationships, interactive states,
+scenarios, recommendations, and caveats use the same wording and sequence.
+`GeneratedHtmlDocumentProcessor` requires this manifest, and
+`CopilotVisualizationClient` returns it directly for validation and rendering
+without a second planning model call.
+
+Legacy saved pages without a manifest remain supported.
+`HtmlPresentationOutlineBuilder` parses their secured in-memory HTML with
+AngleSharp and preserves visible page order plus grouped visual nodes, scenario
+options, and bounded human-readable interaction steps/state text. Scripts are
+never executed; styles, templates, embedded image bytes, and arbitrary code
+are excluded. The bounded outline is then sent to Copilot for fallback
+planning.
 
 `GeneratePresentationUseCase` validates every field, requires the first
 content slide to be visual, requires at least two thirds of content slides to
 be diagrams, comparisons, or card grids, checks semantic node tones, node IDs,
-and connection endpoints, and rejects unavailable icon keys. Visual slides use
-node details instead of bullets. Diagrams require directional connections;
-comparison and card slides prohibit them.
+and connection endpoints, and rejects unavailable icon keys. Diagram slides
+are limited to six nodes so complex stages become a forward-path overview plus
+numbered focused state slides. Visual slides use node details instead of
+bullets. Diagrams require directional connections; comparison and card slides
+prohibit them.
 
 `OpenXmlPresentationBuilder` then creates a 16:9 deck with:
 
 - an AzHST title slide
+- distinct parent-section, slide-title, nested-heading, explanation, and
+  callout treatments
 - editable native text, numbered point cards, semantic card grids, and shapes
-- directional connectors for architecture and process diagrams
-- horizontal layouts for short flows and small comparisons
+- directional edge-to-edge or orthogonally routed connectors for architecture
+  and process diagrams
+- compact horizontal layouts for short flows and small comparisons, plus
+  centered incomplete grid rows
+- tone-colored card outlines without detached top-accent strips
 - original Azure SVG icon data embedded in the package
 - artifact ID, slide numbers, source names, and production-validation guidance
+
+Connector labels are optional and appear only when the text fits safely in a
+horizontal route segment. Only the final segment of a multi-segment route has
+an arrowhead. Text boxes use native DrawingML automatic fitting, and the
+artifact footer reserves enough width to remain on one line.
 
 Interactive HTML states, request paths, or progressive steps are represented
 as adjacent visual slides. The current renderer deliberately does not emit
@@ -301,18 +321,22 @@ Version one persists:
 
 | Setting | Default | Purpose |
 |---|---|---|
+| Copilot model | `auto` | Select the model used for assessment, visualization generation, and legacy presentation planning |
 | Output directory | `.\generated` under the working directory | Store `<id>\index.html` visualization artifacts |
 | Open externally | `false` | Also launch each result in the default browser |
 | HTML theme | `azure-night` | Apply the Azure Night visual contract and authoritative CSS variables |
 | PowerPoint theme | `professional-light` | Apply the Professional Light palette, typography, and appearance |
 
-Copilot model selection is always `auto`. It is an application behavior rather
-than a user setting, so the SDK chooses an available model for every
-assessment, visualization, and presentation-planning session.
+The Settings dialog asks `ICopilotModelCatalog` for the models available to the
+signed-in account and persists the selected ID. `auto` remains the backward-
+compatible default. Assessment and HTML generation use the selected model.
+The HTML response contains the authoritative PowerPoint narrative, so new
+pages need no second planning call; the selected model is used when a legacy
+page requires fallback presentation planning.
 
-The Settings dialog lists themes from `IOutputThemeCatalog` and persists only
-their IDs. Missing or blank theme IDs in legacy settings receive defaults.
-See `.dev.md` for the complete theme schema and extension process.
+The Settings dialog also lists themes from `IOutputThemeCatalog` and persists
+their IDs. Missing or blank model and theme IDs in legacy settings receive
+defaults. See `.dev.md` for the complete configuration contracts.
 
 ## Evolution path
 

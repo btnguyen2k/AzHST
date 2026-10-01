@@ -7,7 +7,7 @@
     x:DataType="vm:SettingsWindowViewModel"
     Title="AzHST settings"
     Width="560"
-    Height="550"
+    Height="650"
     CanResize="False"
     Icon="/Assets/azhst-icon.ico"
     Background="#0E162A"
@@ -22,12 +22,34 @@
           Text="Configuration" />
       <TextBlock
           Foreground="#8FA4CB"
-          Text="Choose output themes and how generated pages are opened." />
+          Text="Choose the Copilot model, output themes, and how generated pages are opened." />
     </StackPanel>
 
     <StackPanel Grid.Row="1" Margin="0,26,0,0" Spacing="10">
       <TextBlock
           FontWeight="SemiBold"
+          Foreground="#DCE7FF"
+          Text="GitHub Copilot AI model" />
+      <ComboBox
+          AutomationProperties.Name="GitHub Copilot AI model"
+          IsEnabled="{Binding CanSelectCopilotModel}"
+          ItemsSource="{Binding CopilotModelOptions}"
+          SelectedItem="{Binding SelectedCopilotModel, Mode=TwoWay}">
+        <ComboBox.ItemTemplate>
+          <DataTemplate x:DataType="models:CopilotModelOption">
+            <TextBlock Text="{Binding DisplayName}" />
+          </DataTemplate>
+        </ComboBox.ItemTemplate>
+      </ComboBox>
+      <TextBlock
+          FontSize="12"
+          Foreground="#7186AD"
+          Text="{Binding CopilotModelStatus}"
+          TextWrapping="Wrap" />
+
+      <TextBlock
+          FontWeight="SemiBold"
+          Margin="0,6,0,0"
           Foreground="#DCE7FF"
           Text="HTML visualization theme" />
       <ComboBox

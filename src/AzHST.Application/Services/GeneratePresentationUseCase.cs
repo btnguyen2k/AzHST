@@ -12,13 +12,19 @@ public sealed partial class GeneratePresentationUseCase
     public const int MaximumBulletsPerSlide = 4;
     public const int MaximumNodesPerSlide = 10;
     public const int MaximumConnectionsPerSlide = 16;
+    public const int MaximumDiagramNodesPerSlide = 6;
+    public const int MaximumComparisonNodesPerSlide = 4;
+    public const int MaximumCardNodesPerSlide = 6;
 
     private const int MaximumTitleLength = 120;
     private const int MaximumSubtitleLength = 240;
+    private const int MaximumSectionTitleLength = 100;
+    private const int MaximumSlideSubtitleLength = 160;
     private const int MaximumSummaryLength = 420;
+    private const int MaximumCalloutLength = 280;
     private const int MaximumBulletLength = 180;
     private const int MaximumNodeLabelLength = 80;
-    private const int MaximumNodeDetailLength = 140;
+    private const int MaximumNodeDetailLength = 220;
     private const int MaximumConnectionLabelLength = 60;
     private const int MaximumSourcesPerSlide = 4;
     private const int MaximumSourceLength = 100;
@@ -93,7 +99,7 @@ public sealed partial class GeneratePresentationUseCase
 
         var rawPlan = await _planner.CreatePresentationPlanAsync(
             normalizedQuery,
-            CopilotModelSelection.Automatic,
+            CopilotModelSelection.Normalize(settings.Model),
             visualization,
             progress,
             cancellationToken);
@@ -185,10 +191,29 @@ public sealed partial class GeneratePresentationUseCase
             slide.Title,
             $"slide {slideNumber} title",
             MaximumTitleLength);
+        var sectionTitle = OptionalText(
+            slide.SectionTitle,
+            $"slide {slideNumber} section title",
+            MaximumSectionTitleLength);
+        if (string.Equals(
+            sectionTitle,
+            title,
+            StringComparison.OrdinalIgnoreCase))
+        {
+            sectionTitle = string.Empty;
+        }
+        var subtitle = OptionalText(
+            slide.Subtitle,
+            $"slide {slideNumber} subtitle",
+            MaximumSlideSubtitleLength);
         var summary = OptionalText(
             slide.Summary,
             $"slide {slideNumber} summary",
             MaximumSummaryLength);
+        var callout = OptionalText(
+            slide.Callout,
+            $"slide {slideNumber} callout",
+            MaximumCalloutLength);
         var bullets = ValidateTextList(
             slide.Bullets,
             $"slide {slideNumber} bullets",
@@ -211,6 +236,18 @@ public sealed partial class GeneratePresentationUseCase
             {
                 throw new PresentationGenerationException(
                     $"Visual slide {slideNumber} must contain at least two nodes.");
+            }
+
+            var maximumNodes = kind switch
+            {
+                "diagram" => MaximumDiagramNodesPerSlide,
+                "comparison" => MaximumComparisonNodesPerSlide,
+                _ => MaximumCardNodesPerSlide,
+            };
+            if (nodes.Count > maximumNodes)
+            {
+                throw new PresentationGenerationException(
+                    $"Presentation {kind} slide {slideNumber} must contain no more than {maximumNodes} nodes.");
             }
 
             if (bullets.Count > 0)
@@ -249,8 +286,11 @@ public sealed partial class GeneratePresentationUseCase
         return new PresentationSlidePlan
         {
             Kind = kind,
+            SectionTitle = sectionTitle,
             Title = title,
+            Subtitle = subtitle,
             Summary = summary,
+            Callout = callout,
             Bullets = bullets,
             Nodes = nodes,
             Connections = connections,

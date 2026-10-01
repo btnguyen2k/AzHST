@@ -98,6 +98,7 @@ public sealed class JsonSettingsRepository : ISettingsRepository
 
         return settings with
         {
+            Model = CopilotModelSelection.Normalize(settings.Model),
             OutputDirectory = string.IsNullOrWhiteSpace(settings.OutputDirectory)
                 ? _defaultOutputDirectory
                 : Path.GetFullPath(settings.OutputDirectory.Trim()),

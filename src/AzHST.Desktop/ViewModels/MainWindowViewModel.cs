@@ -75,6 +75,7 @@ public sealed partial class MainWindowViewModel : ObservableObject
     private string? _presentationFilePath;
 
     [ObservableProperty]
+    [NotifyPropertyChangedFor(nameof(CopilotModelName))]
     [NotifyPropertyChangedFor(nameof(HtmlThemeName))]
     [NotifyPropertyChangedFor(nameof(PresentationThemeName))]
     [NotifyPropertyChangedFor(nameof(ResultOpeningMode))]
@@ -134,6 +135,11 @@ public sealed partial class MainWindowViewModel : ObservableObject
     public string WebViewAvailabilityMessage => _webViewAvailability.Message;
 
     public string ApplicationIdentityText { get; }
+
+    public string CopilotModelName =>
+        CopilotModelSelection.IsAutomatic(Settings.Model)
+            ? "Automatic"
+            : Settings.Model;
 
     public string HtmlThemeName => ResolveThemeName(
         _themes.HtmlThemes,

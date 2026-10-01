@@ -27,6 +27,64 @@ public sealed class GenerateVisualizationUseCaseTests
             <button id="next" type="button">Next step</button>
             <div id="stage">Visualization</div>
           </main>
+          <script id="azh-presentation-plan" type="application/json">
+          {
+            "title": "Azure Functions",
+            "subtitle": "Safe visualization",
+            "slides": [
+              {
+                "kind": "diagram",
+                "title": "Request flow",
+                "summary": "Follow the request.",
+                "bullets": [],
+                "nodes": [
+                  { "id": "source", "label": "Source", "detail": "Starts work.", "iconKey": "", "tone": "neutral" },
+                  { "id": "function", "label": "Function", "detail": "Processes work.", "iconKey": "", "tone": "primary" }
+                ],
+                "connections": [
+                  { "from": "source", "to": "function", "label": "invoke" }
+                ],
+                "sources": []
+              },
+              {
+                "kind": "cards",
+                "title": "Behavior",
+                "summary": "Visible behavior.",
+                "bullets": [],
+                "nodes": [
+                  { "id": "trigger", "label": "Trigger", "detail": "Starts execution.", "iconKey": "", "tone": "primary" },
+                  { "id": "binding", "label": "Binding", "detail": "Connects data.", "iconKey": "", "tone": "accent" }
+                ],
+                "connections": [],
+                "sources": []
+              },
+              {
+                "kind": "cards",
+                "title": "Operations",
+                "summary": "Operational guidance.",
+                "bullets": [],
+                "nodes": [
+                  { "id": "monitor", "label": "Monitor", "detail": "Observe executions.", "iconKey": "", "tone": "success" },
+                  { "id": "retry", "label": "Retry", "detail": "Handle failures.", "iconKey": "", "tone": "warning" }
+                ],
+                "connections": [],
+                "sources": []
+              },
+              {
+                "kind": "cards",
+                "title": "Validate before production",
+                "summary": "Confirm current details.",
+                "bullets": [],
+                "nodes": [
+                  { "id": "availability", "label": "Availability", "detail": "Confirm regional support.", "iconKey": "", "tone": "warning" },
+                  { "id": "pricing", "label": "Pricing", "detail": "Review current pricing.", "iconKey": "", "tone": "warning" }
+                ],
+                "connections": [],
+                "sources": ["Microsoft Learn"]
+              }
+            ]
+          }
+          </script>
           <script>
             document.querySelector("#next").addEventListener("click", () => {
               document.querySelector("#stage").classList.toggle("active");
@@ -77,15 +135,20 @@ public sealed class GenerateVisualizationUseCaseTests
     }
 
     [Fact]
-    public async Task ExecuteAsync_AlwaysUsesAutomaticModelSelection()
+    public async Task ExecuteAsync_UsesSelectedModel()
     {
         var client = CreateValidClient();
         var useCase = CreateUseCase(client, new StubArtifactStore());
 
-        await useCase.ExecuteAsync("Compare two services", new AppSettings());
+        await useCase.ExecuteAsync(
+            "Compare two services",
+            new AppSettings
+            {
+                Model = "claude-sonnet-4.5",
+            });
 
-        Assert.Equal(CopilotModelSelection.Automatic, client.AssessmentModel);
-        Assert.Equal(CopilotModelSelection.Automatic, client.GenerationModel);
+        Assert.Equal("claude-sonnet-4.5", client.AssessmentModel);
+        Assert.Equal("claude-sonnet-4.5", client.GenerationModel);
     }
 
     [Fact]

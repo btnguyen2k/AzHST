@@ -11,7 +11,7 @@ This repository contains the first functional vertical slice. Authentication, co
 - Avalonia 12 desktop UI targeting .NET 10
 - GitHub CLI sign-in flow and authentication status
 - GitHub Copilot SDK integration with no agent tools or host access enabled
-- Automatic Copilot model selection
+- Account-aware Copilot model selection with an Automatic default
 - Copilot-powered query validation for Azure relevance and visual suitability
 - Visual prompts for service explanations, comparisons, integrations, and architecture proposals
 - Self-contained HTML generation with inline CSS, JavaScript, SVG, and official Azure service icons
@@ -107,14 +107,14 @@ Dependencies point inward: Desktop and Infrastructure depend on Application; App
 
 For each submitted question, AzHST:
 
-1. Uses Copilot structured output to verify that the request is related to Azure or Microsoft cloud services and can produce a meaningful visual explanation.
+1. Uses the selected Copilot model and structured output to verify that the request is related to Azure or Microsoft cloud services and can produce a meaningful visual explanation.
 2. Shows the returned guidance without generating a page when the request is invalid.
 3. Creates an ID from the hexadecimal Unix timestamp and a sanitized Copilot-suggested slug.
 4. Selects a small query-relevant catalog of approved Azure icon keys.
-5. Resolves the selected HTML theme and makes a second Copilot request for a standalone page with clear text sections, a prominent visual stage, stateful controls, purposeful animation, reduced-motion support, and optional official icon placeholders.
+5. Resolves the selected HTML theme and asks the same selected model for a standalone page with clear text sections, a prominent visual stage, stateful controls, purposeful animation, reduced-motion support, optional official icon placeholders, and an embedded PowerPoint narrative.
 6. Replaces approved placeholders with the original SVG bytes encoded as `data:` images and injects the authoritative theme CSS.
 7. Secures and saves the page, then navigates the embedded WebView to it.
-8. On request, extracts a bounded structural outline from the secured HTML, asks Copilot for a visual-first slide plan that follows the page's section order and terminology, resolves the selected presentation theme, and builds an editable `.pptx` locally with the Open XML SDK.
+8. On request, validates and reuses the embedded visual-first slide plan, resolves the selected presentation theme, and builds an editable `.pptx` locally with the Open XML SDK. Legacy pages without an embedded plan use the selected model to create one from a bounded structural outline.
 
 The default artifact layout is relative to the application's working directory:
 
@@ -132,9 +132,12 @@ title slide plus 4-9 content slides and stores the deck beside `index.html`.
 The first content slide is visual, and at least two thirds of the content
 slides are editable diagrams, comparisons, or card grids. Feature grids,
 recommendations, trade-offs, and production caveats become separate native
-cards instead of dense text boxes. When the HTML presents interactive states
-or progressive steps, adjacent slides represent those states; PowerPoint
-animation is not generated.
+cards instead of dense text boxes. Parent section labels, nested headings,
+explanatory paragraphs, and visible callouts remain distinct instead of being
+flattened into a single summary. Tone-colored card outlines stay aligned to
+their rounded cards without separate top-accent strips. When the HTML presents
+interactive states or progressive steps, adjacent slides represent those
+states; PowerPoint animation is not generated.
 PowerPoint decks use the selected presentation theme. The default is
 **Professional Light**, optimized for projection, printing, and document
 sharing.
@@ -167,6 +170,11 @@ AzHST\
 ```
 
 Authentication tokens remain managed by GitHub CLI or the bundled Copilot runtime and are never written to `settings.json`.
+
+Settings loads the models currently available to the signed-in Copilot account.
+The selected model ID is stored locally and used for query assessment, HTML
+generation, and legacy PowerPoint planning. **Automatic** remains the default;
+availability can vary by Copilot plan and organization policy.
 
 The sample question catalog is stored separately relative to the application's
 working directory:
@@ -203,11 +211,12 @@ mappings, and instructions for adding themes.
 
 Model output is untrusted. Before saving a page, AzHST requires a complete HTML document and an interactive experience baseline: inline JavaScript, semantic controls, purposeful motion, and a `prefers-reduced-motion` fallback. It also limits document size, rejects external `src` and `href` references and remote CSS URLs, removes `<base>` and model-provided CSP elements, and injects a restrictive Content Security Policy. Azure icon placeholders accept only catalog keys, descriptive alt text, and no model-supplied `src`; AzHST substitutes a validated base64 SVG data URI. The desktop host blocks top-level navigation and new-window requests.
 
-Copilot never generates PowerPoint binary or Open XML markup. It returns a
-structured presentation plan based on a bounded structural outline of the
-secured HTML. The outline preserves visible headings, text, lists, table rows,
-controls, image descriptions, and SVG labels while excluding scripts, styles,
-and embedded image bytes. AzHST validates the bounded slide, text, node,
+Copilot never generates PowerPoint binary or Open XML markup. New pages carry
+their validated structured presentation plan in a non-executable JSON
+manifest. Legacy pages use a bounded structural outline of the secured HTML;
+the outline preserves visible headings, text, lists, table rows, controls,
+image descriptions, and SVG labels while excluding scripts, styles, and
+embedded image bytes. AzHST validates the bounded slide, hierarchy, text, node,
 connection, semantic-tone, and icon fields, constructs the package with the
 [Microsoft Open XML SDK](https://learn.microsoft.com/office/open-xml/presentation/overview),
 embeds approved Azure SVGs, validates the completed package against the Office

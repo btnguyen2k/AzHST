@@ -27,6 +27,7 @@ public sealed class JsonSettingsRepositoryTests : IDisposable
 
         var settings = await repository.LoadAsync();
 
+        Assert.Equal("gpt-5", settings.Model);
         Assert.Equal(OutputThemeSettings.DefaultHtmlThemeId, settings.Themes.HtmlThemeId);
         Assert.Equal(
             OutputThemeSettings.DefaultPresentationThemeId,
@@ -42,7 +43,7 @@ public sealed class JsonSettingsRepositoryTests : IDisposable
             paths.SettingsFile,
             JsonSerializer.Serialize(new
             {
-                model = "auto",
+                model = " ",
                 outputDirectory = paths.GeneratedPagesDirectory,
                 themes = new
                 {
@@ -54,6 +55,7 @@ public sealed class JsonSettingsRepositoryTests : IDisposable
 
         var settings = await repository.LoadAsync();
 
+        Assert.Equal(CopilotModelSelection.Automatic, settings.Model);
         Assert.Equal(OutputThemeSettings.DefaultHtmlThemeId, settings.Themes.HtmlThemeId);
         Assert.Equal(
             OutputThemeSettings.DefaultPresentationThemeId,
@@ -67,6 +69,7 @@ public sealed class JsonSettingsRepositoryTests : IDisposable
         var repository = new JsonSettingsRepository(paths);
         var expected = new AppSettings
         {
+            Model = "claude-sonnet-4.5",
             OutputDirectory = paths.GeneratedPagesDirectory,
             OpenResultsInExternalBrowser = true,
             Themes = new OutputThemeSettings
@@ -80,11 +83,15 @@ public sealed class JsonSettingsRepositoryTests : IDisposable
         var actual = await repository.LoadAsync();
         var persistedJson = await File.ReadAllTextAsync(paths.SettingsFile);
 
+        Assert.Equal("claude-sonnet-4.5", actual.Model);
         Assert.Equal("custom-html", actual.Themes.HtmlThemeId);
         Assert.Equal(
             "custom-presentation",
             actual.Themes.PresentationThemeId);
-        Assert.DoesNotContain("\"model\"", persistedJson.ToLowerInvariant());
+        Assert.Contains(
+            "\"model\": \"claude-sonnet-4.5\"",
+            persistedJson,
+            StringComparison.Ordinal);
     }
 
     public void Dispose()

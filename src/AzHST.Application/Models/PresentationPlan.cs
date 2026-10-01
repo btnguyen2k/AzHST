@@ -13,9 +13,15 @@ public sealed class PresentationSlidePlan
 {
     public string Kind { get; set; } = string.Empty;
 
+    public string SectionTitle { get; set; } = string.Empty;
+
     public string Title { get; set; } = string.Empty;
 
+    public string Subtitle { get; set; } = string.Empty;
+
     public string Summary { get; set; } = string.Empty;
+
+    public string Callout { get; set; } = string.Empty;
 
     public List<string> Bullets { get; set; } = [];
 

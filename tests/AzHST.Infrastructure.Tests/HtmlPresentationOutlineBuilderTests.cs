@@ -23,14 +23,30 @@ public sealed class HtmlPresentationOutlineBuilderTests
                     <text>Client</text>
                     <text>Application Gateway</text>
                   </svg>
+                  <div data-node="gateway">
+                    <img data-azure-icon-resolved="networking/app-gateway" alt="Application Gateway">
+                    <strong>Application Gateway</strong>
+                    <small>Routes healthy traffic</small>
+                  </div>
                   <button>Show failover path</button>
+                  <button data-choice="health" data-value="unhealthy">Unhealthy</button>
                 </section>
                 <table>
                   <tr><th>Option</th><th>Use when</th></tr>
                   <tr><td>WAF_v2</td><td>Autoscaling is required</td></tr>
                 </table>
               </main>
-              <script>window.secret = "do not include";</script>
+              <script>
+                const steps = [
+                  {
+                    node: "listener",
+                    title: "Listener accepts TLS",
+                    text: "The listener terminates the client TLS connection."
+                  }
+                ];
+                scenarioCopy.textContent = "The unhealthy backend is excluded from new requests.";
+                window.secret = "do not include";
+              </script>
             </body>
             </html>
             """;
@@ -46,9 +62,21 @@ public sealed class HtmlPresentationOutlineBuilderTests
         Assert.Contains(
             "DIAGRAM LABELS: Regional request path | Client | Application Gateway",
             outline);
+        Assert.Contains(
+            "VISUAL NODE: gateway | Application Gateway | Routes healthy traffic | networking/app-gateway",
+            outline);
         Assert.Contains("CONTROL: Show failover path", outline);
+        Assert.Contains(
+            "SCENARIO OPTION: health=unhealthy | Unhealthy",
+            outline);
         Assert.Contains("TABLE ROW: Option | Use when", outline);
         Assert.Contains("TABLE ROW: WAF_v2 | Autoscaling is required", outline);
+        Assert.Contains(
+            "INTERACTION STEP: listener | Listener accepts TLS | The listener terminates the client TLS connection.",
+            outline);
+        Assert.Contains(
+            "INTERACTION STATE: The unhealthy backend is excluded from new requests.",
+            outline);
         Assert.DoesNotContain("hidden", outline);
         Assert.DoesNotContain("window.secret", outline);
     }

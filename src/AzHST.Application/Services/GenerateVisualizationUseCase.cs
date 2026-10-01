@@ -48,9 +48,10 @@ public sealed class GenerateVisualizationUseCase
                 $"The question is too long. Keep it under {MaximumQueryLength:N0} characters.");
         }
 
+        var model = CopilotModelSelection.Normalize(settings.Model);
         var assessment = await _copilotClient.AssessQueryAsync(
             normalizedQuery,
-            CopilotModelSelection.Automatic,
+            model,
             progress,
             cancellationToken);
 
@@ -67,7 +68,7 @@ public sealed class GenerateVisualizationUseCase
 
         var rawResponse = await _copilotClient.GenerateHtmlAsync(
             normalizedQuery,
-            CopilotModelSelection.Automatic,
+            model,
             visualizationId,
             theme,
             progress,

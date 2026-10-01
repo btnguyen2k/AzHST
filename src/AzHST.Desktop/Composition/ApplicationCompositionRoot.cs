@@ -47,7 +47,8 @@ internal static class ApplicationCompositionRoot
         var clipboardService = new ClipboardService(() => mainWindow);
         var settingsDialogService = new SettingsDialogService(
             () => mainWindow,
-            themes);
+            themes,
+            copilotClient);
         var loginDialogService = new GitHubLoginDialogService(() => mainWindow);
         var aboutDialogService = new AboutDialogService(
             () => mainWindow,

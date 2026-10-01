@@ -34,12 +34,21 @@ public sealed class GeneratePresentationUseCaseTests
             OutputThemeSettings.DefaultPresentationThemeId,
             builder.Theme?.Id);
         Assert.Equal("diagram", builder.Plan!.Slides[0].Kind);
+        Assert.Equal(
+            "How requests are processed",
+            builder.Plan.Slides[0].SectionTitle);
+        Assert.Equal(
+            "Listener accepts HTTPS",
+            builder.Plan.Slides[0].Subtitle);
+        Assert.Equal(
+            "Important: frontend and backend TLS are separate.",
+            builder.Plan.Slides[0].Callout);
         Assert.Equal("cards", builder.Plan.Slides[1].Kind);
         Assert.Equal(builder.Artifact, result);
     }
 
     [Fact]
-    public async Task ExecuteAsync_AlwaysUsesAutomaticModelSelection()
+    public async Task ExecuteAsync_UsesSelectedModel()
     {
         var planner = new StubPlanner(CreateValidPlan(), []);
         var useCase = new GeneratePresentationUseCase(
@@ -51,9 +60,75 @@ public sealed class GeneratePresentationUseCaseTests
         await useCase.ExecuteAsync(
             "Explain Azure Application Gateway",
             CreateVisualization(),
+            new AppSettings
+            {
+                Model = "gpt-5",
+            });
+
+        Assert.Equal("gpt-5", planner.Model);
+    }
+
+    [Fact]
+    public async Task ExecuteAsync_RemovesSectionTitleThatDuplicatesSlideTitle()
+    {
+        var plan = CreateValidPlan();
+        plan.Slides[0].SectionTitle = "REQUEST FLOW";
+        var builder = new StubBuilder([]);
+        var useCase = new GeneratePresentationUseCase(
+            new StubPlanner(plan, []),
+            builder,
+            new StubAzureIconCatalog("networking/app-gateway"),
+            new StubOutputThemeCatalog());
+
+        await useCase.ExecuteAsync(
+            "Explain Azure Application Gateway",
+            CreateVisualization(),
             new AppSettings());
 
-        Assert.Equal(CopilotModelSelection.Automatic, planner.Model);
+        Assert.Equal(string.Empty, builder.Plan!.Slides[0].SectionTitle);
+    }
+
+    [Fact]
+    public async Task ExecuteAsync_AcceptsNodeDetailAtMaximumLength()
+    {
+        var plan = CreateValidPlan();
+        var detail = new string('x', 220);
+        plan.Slides[1].Nodes[0].Detail = detail;
+        var builder = new StubBuilder([]);
+        var useCase = new GeneratePresentationUseCase(
+            new StubPlanner(plan, []),
+            builder,
+            new StubAzureIconCatalog("networking/app-gateway"),
+            new StubOutputThemeCatalog());
+
+        await useCase.ExecuteAsync(
+            "Explain Azure Application Gateway",
+            CreateVisualization(),
+            new AppSettings());
+
+        Assert.Equal(detail, builder.Plan!.Slides[1].Nodes[0].Detail);
+    }
+
+    [Fact]
+    public async Task ExecuteAsync_RejectsNodeDetailAboveMaximumLength()
+    {
+        var plan = CreateValidPlan();
+        plan.Slides[1].Nodes[0].Detail = new string('x', 221);
+        var useCase = new GeneratePresentationUseCase(
+            new StubPlanner(plan, []),
+            new StubBuilder([]),
+            new StubAzureIconCatalog("networking/app-gateway"),
+            new StubOutputThemeCatalog());
+
+        var exception = await Assert.ThrowsAsync<PresentationGenerationException>(
+            () => useCase.ExecuteAsync(
+                "Explain Azure Application Gateway",
+                CreateVisualization(),
+                new AppSettings()));
+
+        Assert.Contains(
+            "node detail exceeds 220 characters",
+            exception.Message);
     }
 
     [Fact]
@@ -202,6 +277,38 @@ public sealed class GeneratePresentationUseCaseTests
     }
 
     [Fact]
+    public async Task ExecuteAsync_RejectsOverloadedDiagram()
+    {
+        var plan = CreateValidPlan();
+        for (var index = 0; index < 5; index++)
+        {
+            plan.Slides[0].Nodes.Add(new PresentationNodePlan
+            {
+                Id = $"extra-{index}",
+                Label = $"Extra {index}",
+                Detail = "A focused slide should explain this node.",
+                Tone = "neutral",
+            });
+        }
+
+        var builder = new StubBuilder([]);
+        var useCase = new GeneratePresentationUseCase(
+            new StubPlanner(plan, []),
+            builder,
+            new StubAzureIconCatalog("networking/app-gateway"),
+            new StubOutputThemeCatalog());
+
+        var exception = await Assert.ThrowsAsync<PresentationGenerationException>(
+            () => useCase.ExecuteAsync(
+                "Explain Azure Application Gateway",
+                CreateVisualization(),
+                new AppSettings()));
+
+        Assert.Contains("no more than 6 nodes", exception.Message);
+        Assert.Null(builder.Plan);
+    }
+
+    [Fact]
     public async Task ExecuteAsync_RejectsUnsupportedNodeTone()
     {
         var plan = CreateValidPlan();
@@ -256,8 +363,12 @@ public sealed class GeneratePresentationUseCaseTests
                 new PresentationSlidePlan
                 {
                     Kind = "diagram",
+                    SectionTitle = "How requests are processed",
                     Title = "Request flow",
+                    Subtitle = "Listener accepts HTTPS",
                     Summary = "Traffic flows through the gateway.",
+                    Callout =
+                        "Important: frontend and backend TLS are separate.",
                     Nodes =
                     [
                         new PresentationNodePlan

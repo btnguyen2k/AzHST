@@ -18,7 +18,9 @@
     <DataTemplate x:Key="HtmlDocumentTemplate" x:DataType="sys:String">
       <NativeWebView
           Tag="{Binding .}"
+          DataContextChanged="DocumentationWebView_DataContextChanged"
           Loaded="DocumentationWebView_Loaded"
+          Unloaded="DocumentationWebView_Unloaded"
           NavigationStarted="DocumentationWebView_NavigationStarted"
           NewWindowRequested="DocumentationWebView_NewWindowRequested" />
     </DataTemplate>

@@ -200,10 +200,83 @@ public sealed class OpenXmlPresentationBuilderTests : IDisposable
                 var tailEnd = Assert.IsType<A.TailEnd>(
                     outline.GetFirstChild<A.TailEnd>());
 
-                Assert.InRange(extents.Cx!.Value, 1, 300_000);
+                Assert.InRange(extents.Cx!.Value, 1, 600_000);
                 Assert.Equal(A.LineEndValues.None, headEnd.Type!.Value);
                 Assert.Equal(A.LineEndValues.Triangle, tailEnd.Type!.Value);
             });
+    }
+
+    [Fact]
+    public async Task BuildAsync_RoutesBranchingDiagramThroughGridGutters()
+    {
+        var iconDirectory = Path.Combine(_testDirectory, "icons");
+        CreateIcon(iconDirectory);
+        var builder = new OpenXmlPresentationBuilder(
+            new FileAzureIconCatalog(iconDirectory));
+
+        var artifact = await builder.BuildAsync(
+            CreateBranchingPlan(),
+            CreateVisualization(),
+            CreateTheme());
+
+        using var document = PresentationDocument.Open(artifact.FilePath, false);
+        var presentationPart = Assert.IsType<PresentationPart>(
+            document.PresentationPart);
+        var diagramSlide = Assert.Single(
+            presentationPart.SlideParts,
+            slide => GetSlideText(slide)
+                .Any(text => text.Text == "Warm up, then swap"));
+        var connectors = diagramSlide.Slide!
+            .Descendants<P.ConnectionShape>()
+            .ToArray();
+
+        Assert.Equal(8, connectors.Length);
+        Assert.Equal(
+            4,
+            connectors.Count(
+                connector => connector.ShapeProperties!
+                    .GetFirstChild<A.Outline>()!
+                    .GetFirstChild<A.TailEnd>()!
+                    .Type?.Value == A.LineEndValues.Triangle));
+        Assert.Contains(
+            connectors,
+            connector =>
+            {
+                var extents = connector.ShapeProperties!
+                    .Transform2D!
+                    .Extents!;
+                return extents.Cx?.Value > 2_000_000
+                    && extents.Cy?.Value == 1;
+            });
+
+        var slideText = GetSlideText(diagramSlide)
+            .Select(text => text.Text)
+            .ToArray();
+        Assert.DoesNotContain("Production hostname stays fixed", slideText);
+        Assert.DoesNotContain("Staging hostname stays fixed", slideText);
+
+        var productionLabel = Assert.Single(
+            diagramSlide.Slide.Descendants<P.Shape>(),
+            shape => GetShapeText(shape) == "Production · Green");
+        var stagingLabel = Assert.Single(
+            diagramSlide.Slide.Descendants<P.Shape>(),
+            shape => GetShapeText(shape) == "Staging · Blue");
+        Assert.True(
+            productionLabel.ShapeProperties!.Transform2D!.Offset!.X?.Value
+                > 2_400_000);
+        Assert.True(
+            stagingLabel.ShapeProperties!.Transform2D!.Offset!.X?.Value
+                > 6_000_000);
+
+        var footer = Assert.Single(
+            diagramSlide.Slide.Descendants<P.Shape>(),
+            shape => GetShapeText(shape).StartsWith(
+                "0199abcd1234-application-gateway",
+                StringComparison.Ordinal));
+        Assert.True(
+            footer.ShapeProperties!.Transform2D!.Extents!.Cx?.Value
+                > 3_000_000);
+        Assert.NotEmpty(diagramSlide.Slide.Descendants<A.NormalAutoFit>());
     }
 
     [Fact]
@@ -238,8 +311,35 @@ public sealed class OpenXmlPresentationBuilderTests : IDisposable
         Assert.Single(
             cardsShapes,
             shape => GetShapeText(shape) == "Web protection");
+        Assert.Single(
+            cardsShapes,
+            shape => GetShapeText(shape) == "How requests are processed");
+        Assert.Contains(
+            cardsShapes,
+            shape =>
+            {
+                var text = GetShapeText(shape);
+                return text.Contains(
+                        "Route and protect traffic",
+                        StringComparison.Ordinal)
+                    && text.Contains(
+                        "Application Gateway is a regional layer 7 load balancer.",
+                        StringComparison.Ordinal)
+                    && text.Contains(
+                        "Important: frontend and backend TLS are separate.",
+                        StringComparison.Ordinal);
+            });
         Assert.Contains("009FDA", cardsSlide.Slide.OuterXml);
         Assert.Contains("14B8A6", cardsSlide.Slide.OuterXml);
+        Assert.DoesNotContain(
+            presentationPart.SlideParts
+                .SelectMany(slide => slide.Slide!.Descendants<P.Shape>()),
+            shape =>
+            {
+                var extents = shape.ShapeProperties?.Transform2D?.Extents;
+                return extents?.Cy?.Value == 64_008
+                    && extents.Cx?.Value > 900_000;
+            });
 
         var summaryShapes = summarySlide.Slide!.Descendants<P.Shape>().ToArray();
         const string firstPoint = "Check regional and SKU availability.";
@@ -297,8 +397,12 @@ public sealed class OpenXmlPresentationBuilderTests : IDisposable
                 new PresentationSlidePlan
                 {
                     Kind = "cards",
+                    SectionTitle = "How requests are processed",
                     Title = "Executive overview",
+                    Subtitle = "Route and protect traffic",
                     Summary = "Application Gateway is a regional layer 7 load balancer.",
+                    Callout =
+                        "Important: frontend and backend TLS are separate.",
                     Nodes =
                     [
                         new PresentationNodePlan
@@ -376,6 +480,95 @@ public sealed class OpenXmlPresentationBuilderTests : IDisposable
                         "Validate quotas, pricing, and WAF policy behavior.",
                     ],
                     Sources = ["Microsoft Learn"],
+                },
+            ],
+        };
+    }
+
+    private static PresentationPlan CreateBranchingPlan()
+    {
+        return new PresentationPlan
+        {
+            Title = "Azure App Service blue-green deployment",
+            Subtitle = "Deployment slots and rollback",
+            Slides =
+            [
+                new PresentationSlidePlan
+                {
+                    Kind = "diagram",
+                    Title = "Warm up, then swap",
+                    Summary = "Swap verified slot contents while hostnames remain stable.",
+                    Nodes =
+                    [
+                        new PresentationNodePlan
+                        {
+                            Id = "staging-green",
+                            Label = "Staging · Green",
+                            Detail = "The verified candidate is ready in staging.",
+                            Tone = "success",
+                        },
+                        new PresentationNodePlan
+                        {
+                            Id = "warm-up",
+                            Label = "Warm up target slot",
+                            Detail = "Prepare the target slot before cutover.",
+                            Tone = "neutral",
+                        },
+                        new PresentationNodePlan
+                        {
+                            Id = "swap",
+                            Label = "Swap slot contents",
+                            Detail = "Exchange slot content and configuration.",
+                            Tone = "primary",
+                        },
+                        new PresentationNodePlan
+                        {
+                            Id = "production-green",
+                            Label = "Production · Green",
+                            Detail = "Green serves the production hostname.",
+                            Tone = "success",
+                        },
+                        new PresentationNodePlan
+                        {
+                            Id = "staging-blue",
+                            Label = "Staging · Blue",
+                            Detail = "Blue remains available in staging.",
+                            Tone = "neutral",
+                        },
+                    ],
+                    Connections =
+                    [
+                        new PresentationConnectionPlan
+                        {
+                            From = "staging-green",
+                            To = "warm-up",
+                            Label = "Prepare candidate",
+                        },
+                        new PresentationConnectionPlan
+                        {
+                            From = "warm-up",
+                            To = "swap",
+                            Label = "Ready for cutover",
+                        },
+                        new PresentationConnectionPlan
+                        {
+                            From = "swap",
+                            To = "production-green",
+                            Label = "Production hostname stays fixed",
+                        },
+                        new PresentationConnectionPlan
+                        {
+                            From = "swap",
+                            To = "staging-blue",
+                            Label = "Staging hostname stays fixed",
+                        },
+                    ],
+                    Sources =
+                    [
+                        "Azure App Service deployment slots",
+                        "Azure App Service swap operation",
+                        "Azure App Service Health check",
+                    ],
                 },
             ],
         };

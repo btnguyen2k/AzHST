@@ -1,6 +1,7 @@
 using AzHST.Application.Abstractions;
 using AzHST.Application.Exceptions;
 using AzHST.Application.Models;
+using AzHST.Application.Services;
 using GitHub.Copilot;
 
 namespace AzHST.Infrastructure;
@@ -8,7 +9,8 @@ namespace AzHST.Infrastructure;
 public sealed class CopilotVisualizationClient :
     ICopilotVisualizationClient,
     ICopilotPresentationPlanner,
-    ICopilotSampleQueryGenerator
+    ICopilotSampleQueryGenerator,
+    ICopilotModelCatalog
 {
     private const int MaximumPromptIcons = 24;
 
@@ -57,6 +59,69 @@ public sealed class CopilotVisualizationClient :
         - Keep important information visible outside the animation. Animation enhances the explanation and never becomes the only way to obtain it.
         - Show the current state in text, keep controls visibly selected or disabled when appropriate, and provide a legend when colors, line styles, or icons carry meaning.
 
+        Shared HTML and PowerPoint narrative contract:
+        - The HTML and PowerPoint must tell the same story with the same terminology, visual sequence, scenarios, recommendations, and caveats.
+        - Include exactly one non-executable JSON manifest immediately before </body>:
+          <script id="azh-presentation-plan" type="application/json">
+          {
+            "title": "Presentation title",
+            "subtitle": "One-sentence scope",
+            "slides": [
+              {
+                "kind": "diagram",
+                "sectionTitle": "Nearest visible parent section heading or empty string",
+                "title": "Slide title",
+                "subtitle": "Visible card or subsection heading or empty string",
+                "summary": "Visible explanatory paragraph",
+                "callout": "Visible note, warning, assumption, or empty string",
+                "bullets": [],
+                "nodes": [
+                  {
+                    "id": "node-id",
+                    "label": "Visible HTML label",
+                    "detail": "Visible HTML explanation",
+                    "iconKey": "",
+                    "tone": "primary"
+                  }
+                ],
+                "connections": [
+                  {
+                    "from": "node-id",
+                    "to": "next-node-id",
+                    "label": "HTTPS"
+                  }
+                ],
+                "sources": ["Microsoft Learn"]
+              }
+            ]
+          }
+          </script>
+        - The manifest is data, not executable JavaScript. Use strict JSON with double-quoted property names and strings, no comments, no trailing commas, no HTML markup, and no </script> text inside values.
+        - The manifest is the authoritative presentation narrative. Do not add a topic, service, relationship, claim, or recommendation that is absent from the visible page.
+        - Use 4-9 content slides; AzHST adds the title slide separately.
+        - The first content slide and at least two thirds of content slides use kind diagram, comparison, or cards.
+        - Allowed kinds are content, diagram, comparison, cards, and summary.
+        - Reproduce the prominent interactive stage first. Preserve its exact node labels, order, relationships, state names, and explanatory outcomes.
+        - Keep the overview diagram focused on one primary forward direction. Put response loops, rollback paths, failure branches, and alternate outcomes on focused adjacent slides instead of drawing long return connections across the overview.
+        - If the page has progressive steps, request paths, choices, healthy/unhealthy outcomes, failover, or blocked states, represent them as an overview plus adjacent state slides in the same order.
+        - Prefix progressive state-slide titles with "Step N —" so the sequence remains obvious without animation.
+        - Map the remaining visible page sections to later slides in top-to-bottom order. Do not flatten away their hierarchy.
+        - sectionTitle preserves the nearest visible parent h2 or equivalent section heading. Omit it only when no distinct parent heading exists.
+        - title identifies the current visual, step, comparison, card group, or callout.
+        - subtitle preserves the visible h3, card heading, scenario heading, or equivalent heading nested under title.
+        - Do not leave sectionTitle or subtitle empty merely to simplify the slide when the mapped HTML has a distinct visible heading at that level.
+        - For progressive slides sourced from a visible group such as "All steps and outcomes", repeat that group heading in subtitle on each adjacent step slide.
+        - summary preserves the visible explanatory paragraph for that item instead of replacing it with a generic restatement.
+        - callout preserves one visible note, warning, assumption, distinction, or operational caveat, including its visible label. Leave it empty only when the mapped HTML content has no callout.
+        - When sibling HTML cards form one section, preserve the shared sectionTitle on adjacent slides and keep each card's tag/title, heading, and explanation in title, subtitle, and summary.
+        - Diagram slides use 2-6 nodes and at least one connection. Split a larger visual into an overview plus focused state slides rather than shrinking or omitting explanations.
+        - Comparison slides use 2-4 nodes and no connections. Cards slides use 2-6 nodes and no connections.
+        - Visual slides use nodes instead of bullets. Content and summary slides use 2-4 concise bullets and leave nodes and connections empty.
+        - Node IDs use lowercase letters, digits, and hyphens. Tone is primary, accent, success, warning, danger, or neutral.
+        - Use the same approved Azure icon key in iconKey that the visible HTML uses for that service; otherwise use an empty string.
+        - Connection labels are optional and limited to 1-3 short words.
+        - Sources contain only source names visibly cited on the page.
+
         Motion and interaction requirements:
         - Prefer short CSS transform and opacity transitions. Avoid continuous decorative motion, excessive pulsing, parallax, confetti, or animation that competes with reading.
         - Do not create an infinite animation unless it represents an intentionally running system, and always provide a way to pause it.
@@ -90,6 +155,7 @@ public sealed class CopilotVisualizationClient :
         - Preserve meaningful service names, flow steps, comparison criteria, callouts, assumptions, and recommendations from the visualization.
         - Map the page's prominent interactive visual stage to one or more diagram or comparison slides.
         - When the HTML exposes scenarios, request paths, failure states, or progressive steps, use adjacent visual slides to show those states in sequence.
+        - Keep overview diagrams focused on one primary direction; move response loops, rollback paths, and alternate outcomes to focused adjacent slides.
         - Convert feature grids, key points, recommendations, risks, and caveats into cards rather than dense bullet slides.
         - Do not mention HTML, controls, animation, or the conversion process in slide content.
         - Do not invent details that are absent from the user question or visualization outline.
@@ -99,10 +165,12 @@ public sealed class CopilotVisualizationClient :
         - subtitle: one sentence describing the scope, at most 240 characters
         - slides: 4-9 content slides; do not include the title slide because AzHST adds it
         - every slide has one exact kind: content, diagram, comparison, cards, or summary
+        - sectionTitle is the nearest parent section heading from the outline, or empty when none exists
         - the first content slide must be diagram, comparison, or cards; never begin with a bullet-only executive overview
         - at least two thirds of content slides must be diagram, comparison, or cards
-        - every slide has a concise title and optional summary
-        - summary is one short sentence that frames the visual; do not repeat node details
+        - every slide has a concise title plus optional subtitle, summary, and callout
+        - subtitle preserves a nested visible heading; summary preserves its explanation; callout preserves a distinct visible note or warning
+        - when a mapped section or card has visible parent and nested headings, preserve both; do not omit hierarchy just to shorten the slide
         - content and summary slides use 2-4 short bullets, normally no more than 18 words each
         - include security, resiliency, operations, cost, and trade-offs where relevant
         - end with a cards or summary slide titled "Validate before production" when the outline contains production caveats
@@ -110,15 +178,16 @@ public sealed class CopilotVisualizationClient :
 
         Visual slide requirements:
         - diagram, comparison, and cards slides leave bullets empty; use concise node labels and details instead
-        - diagram slides contain 2-8 ordered nodes and at least one connection
+        - diagram slides contain 2-6 ordered nodes and at least one connection; split larger flows across focused adjacent slides
         - comparison slides contain 2-4 nodes and no connections
         - cards slides contain 2-6 nodes and no connections
         - node id uses lowercase letters, digits, and hyphens only, begins with a letter or digit, and is unique within the slide
-        - node label is concise; detail is one short sentence, normally no more than 16 words
+        - node label is concise; diagram-node detail is normally no more than 16 words, while comparison and card details may preserve one visible explanatory paragraph up to 220 characters
         - iconKey is either an exact key from the approved Azure icon catalog or an empty string
         - tone is exactly one of primary, accent, success, warning, danger, or neutral
         - use success for benefits or healthy states, warning for trade-offs or validation points, danger for risks or failures, and neutral for supporting context
-        - connections refer to node IDs from the same slide and explain direction, protocol, or purpose where useful
+        - connections refer to node IDs from the same slide
+        - connection labels are optional; when needed, use only 1-3 short words such as HTTPS, deploy, verify, or failover
         - use no more than 16 connections per slide
         - for a process, order nodes from source to destination
         - for a comparison, use one node per compared option and leave connections empty
@@ -149,16 +218,56 @@ public sealed class CopilotVisualizationClient :
     private readonly ApplicationPaths _paths;
     private readonly IAzureIconCatalog _azureIcons;
     private readonly HtmlPresentationOutlineBuilder _presentationOutlineBuilder;
+    private readonly PresentationPlanHtmlManifest _presentationPlanManifest;
 
     public CopilotVisualizationClient(
         ApplicationPaths paths,
         IAzureIconCatalog azureIcons,
-        HtmlPresentationOutlineBuilder? presentationOutlineBuilder = null)
+        HtmlPresentationOutlineBuilder? presentationOutlineBuilder = null,
+        PresentationPlanHtmlManifest? presentationPlanManifest = null)
     {
         _paths = paths;
         _azureIcons = azureIcons;
         _presentationOutlineBuilder =
             presentationOutlineBuilder ?? new HtmlPresentationOutlineBuilder();
+        _presentationPlanManifest =
+            presentationPlanManifest ?? new PresentationPlanHtmlManifest();
+    }
+
+    public async Task<IReadOnlyList<CopilotModelOption>> ListModelsAsync(
+        CancellationToken cancellationToken = default)
+    {
+        cancellationToken.ThrowIfCancellationRequested();
+        Directory.CreateDirectory(_paths.CopilotDirectory);
+
+        await using var client = CreateClient();
+        await client.StartAsync();
+        cancellationToken.ThrowIfCancellationRequested();
+
+        var models = await client.ListModelsAsync(cancellationToken);
+        return models
+            .Where(model =>
+                !string.IsNullOrWhiteSpace(model.Id)
+                && !CopilotModelSelection.IsAutomatic(model.Id))
+            .GroupBy(model => model.Id.Trim(), StringComparer.OrdinalIgnoreCase)
+            .Select(group => group.First())
+            .Select(model =>
+            {
+                var id = model.Id.Trim();
+                var name = string.IsNullOrWhiteSpace(model.Name)
+                    ? id
+                    : model.Name.Trim();
+                var displayName = string.Equals(
+                    id,
+                    name,
+                    StringComparison.OrdinalIgnoreCase)
+                        ? id
+                        : $"{name} ({id})";
+
+                return new CopilotModelOption(id, displayName);
+            })
+            .OrderBy(model => model.DisplayName, StringComparer.OrdinalIgnoreCase)
+            .ToArray();
     }
 
     public async Task<VisualizationQueryAssessment> AssessQueryAsync(
@@ -380,6 +489,26 @@ public sealed class CopilotVisualizationClient :
     {
         ArgumentNullException.ThrowIfNull(visualization);
         cancellationToken.ThrowIfCancellationRequested();
+
+        try
+        {
+            var embeddedPlan = _presentationPlanManifest.TryExtract(
+                visualization.Html);
+            if (embeddedPlan is not null)
+            {
+                progress?.Report(new GenerationProgress(
+                    GenerationStage.PlanningPresentation,
+                    "Using the presentation narrative from the visualization..."));
+                return embeddedPlan;
+            }
+        }
+        catch (InvalidDataException exception)
+        {
+            throw new PresentationGenerationException(
+                "AzHST could not read the presentation narrative embedded in the generated HTML.",
+                exception);
+        }
+
         Directory.CreateDirectory(_paths.CopilotDirectory);
         string visualizationOutline;
 
@@ -486,6 +615,7 @@ public sealed class CopilotVisualizationClient :
             - Insert an icon only as an HTML image placeholder in this exact form:
               <img data-azure-icon="{example.Key}" alt="{example.DisplayName}">
             - Copy an exact key from the approved catalog. Do not add a src attribute; AzHST supplies the image data after generation.
+            - Copy that same exact key into the matching presentation-manifest node's iconKey.
             - Keep the product name close to its icon. Do not use an Azure icon for a generic component or a non-Microsoft product.
             - Do not crop, flip, rotate, recolor, distort, or animate the icon itself. Preserve its aspect ratio and animate its container or connectors instead.
             - If the needed service is not listed, use a clearly labeled neutral HTML/CSS shape rather than inventing an icon key.

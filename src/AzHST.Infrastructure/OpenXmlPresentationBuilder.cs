@@ -366,18 +366,40 @@ public sealed class OpenXmlPresentationBuilder : IPresentationBuilder
                 cornerRadius: false);
         }
 
+        if (plan.SectionTitle.Length > 0)
+        {
+            AddTextBox(
+                shapeTree,
+                ref shapeId,
+                theme,
+                Emu(0.62),
+                Emu(0.05),
+                Emu(11.6),
+                Emu(0.2),
+                [
+                    new TextParagraph(
+                        plan.SectionTitle,
+                        Math.Min(theme.BodySize, 850),
+                        theme.Primary,
+                        true),
+                ],
+                A.TextAnchoringTypeValues.Center);
+        }
+
         AddTextBox(
             shapeTree,
             ref shapeId,
             theme,
             Emu(0.62),
-            Emu(0.16),
+            Emu(plan.SectionTitle.Length > 0 ? 0.27 : 0.16),
             Emu(11.6),
-            Emu(0.54),
+            Emu(plan.SectionTitle.Length > 0 ? 0.45 : 0.54),
             [
                 new TextParagraph(
                     plan.Title,
-                    theme.SlideTitleSize,
+                    plan.SectionTitle.Length > 0
+                        ? Math.Min(theme.SlideTitleSize, 1_850)
+                        : theme.SlideTitleSize,
                     theme.Title,
                     true,
                     UseDisplayFont: true),
@@ -417,8 +439,10 @@ public sealed class OpenXmlPresentationBuilder : IPresentationBuilder
         PresentationRenderTheme theme)
     {
         var cardsTop = 1.2;
-        if (plan.Summary.Length > 0)
+        var narrativeCount = CountNarrativeParagraphs(plan);
+        if (narrativeCount > 0)
         {
+            var narrativeHeight = 0.78 + ((narrativeCount - 1) * 0.28);
             AddTextBox(
                 shapeTree,
                 ref shapeId,
@@ -426,19 +450,17 @@ public sealed class OpenXmlPresentationBuilder : IPresentationBuilder
                 Emu(0.75),
                 Emu(1.14),
                 Emu(11.8),
-                Emu(0.78),
-                [
-                    new TextParagraph(
-                        plan.Summary,
-                        Math.Min(theme.SummarySize, 1_400),
-                        theme.Text,
-                        false),
-                ],
+                Emu(narrativeHeight),
+                CreateNarrativeParagraphs(
+                    plan,
+                    theme,
+                    Math.Min(theme.SummarySize, 1_400),
+                    theme.Text),
                 A.TextAnchoringTypeValues.Center,
                 theme.SummarySurface,
                 theme.Border,
                 cornerRadius: theme.RoundedCards);
-            cardsTop = 2.12;
+            cardsTop = 1.14 + narrativeHeight + 0.2;
         }
 
         if (plan.Bullets.Count == 0)
@@ -550,8 +572,11 @@ public sealed class OpenXmlPresentationBuilder : IPresentationBuilder
         PresentationSlidePlan plan,
         PresentationRenderTheme theme)
     {
-        if (plan.Summary.Length > 0)
+        var narrativeCount = CountNarrativeParagraphs(plan);
+        var narrativeHeight = 0d;
+        if (narrativeCount > 0)
         {
+            narrativeHeight = 0.58 + ((narrativeCount - 1) * 0.28);
             AddTextBox(
                 shapeTree,
                 ref shapeId,
@@ -559,22 +584,23 @@ public sealed class OpenXmlPresentationBuilder : IPresentationBuilder
                 Emu(0.72),
                 Emu(1.08),
                 Emu(11.9),
-                Emu(0.58),
-                [
-                    new TextParagraph(
-                        plan.Summary,
-                        Math.Min(theme.SummarySize, 1_200),
-                        theme.TextMuted,
-                        false),
-                ],
+                Emu(narrativeHeight),
+                CreateNarrativeParagraphs(
+                    plan,
+                    theme,
+                    Math.Min(theme.SummarySize, 1_200),
+                    theme.TextMuted),
                 A.TextAnchoringTypeValues.Center);
         }
 
+        var contentTop = narrativeCount > 0
+            ? 1.08 + narrativeHeight + 0.16
+            : 1.35;
         var bounds = new SlideRect(
             Emu(0.62),
-            Emu(plan.Summary.Length > 0 ? 1.82 : 1.35),
+            Emu(contentTop),
             Emu(12.1),
-            Emu(plan.Summary.Length > 0 ? 4.35 : 4.82));
+            Emu(6.17 - contentTop));
         var positions = CalculateNodePositions(plan, bounds);
 
         if (plan.Kind == "diagram")
@@ -591,6 +617,7 @@ public sealed class OpenXmlPresentationBuilder : IPresentationBuilder
                     positionsById[connection.From],
                     positionsById[connection.To],
                     connection.Label,
+                    bounds,
                     theme);
             }
         }
@@ -635,16 +662,6 @@ public sealed class OpenXmlPresentationBuilder : IPresentationBuilder
             theme.Surface,
             accentColor,
             cornerRadius: theme.RoundedCards);
-        AddRectangle(
-            shapeTree,
-            ref shapeId,
-            position.X,
-            position.Y,
-            position.Width,
-            Emu(0.07),
-            accentColor,
-            accentColor,
-            cornerRadius: false);
 
         var hasIcon = node.IconKey.Length > 0;
         if (hasIcon)
@@ -725,6 +742,64 @@ public sealed class OpenXmlPresentationBuilder : IPresentationBuilder
         }
     }
 
+    private static int CountNarrativeParagraphs(PresentationSlidePlan plan)
+    {
+        var count = 0;
+        if (plan.Subtitle.Length > 0)
+        {
+            count++;
+        }
+
+        if (plan.Summary.Length > 0)
+        {
+            count++;
+        }
+
+        if (plan.Callout.Length > 0)
+        {
+            count++;
+        }
+
+        return count;
+    }
+
+    private static IReadOnlyList<TextParagraph> CreateNarrativeParagraphs(
+        PresentationSlidePlan plan,
+        PresentationRenderTheme theme,
+        int summarySize,
+        string summaryColor)
+    {
+        var paragraphs = new List<TextParagraph>(3);
+        if (plan.Subtitle.Length > 0)
+        {
+            paragraphs.Add(new TextParagraph(
+                plan.Subtitle,
+                Math.Min(theme.NodeLabelSize, 1_200),
+                theme.Title,
+                true));
+        }
+
+        if (plan.Summary.Length > 0)
+        {
+            paragraphs.Add(new TextParagraph(
+                plan.Summary,
+                summarySize,
+                summaryColor,
+                false));
+        }
+
+        if (plan.Callout.Length > 0)
+        {
+            paragraphs.Add(new TextParagraph(
+                plan.Callout,
+                Math.Min(theme.BodySize, 1_050),
+                theme.Warning,
+                true));
+        }
+
+        return paragraphs;
+    }
+
     private string GetOrAddIconPart(
         SlidePart slidePart,
         string iconKey,
@@ -770,7 +845,8 @@ public sealed class OpenXmlPresentationBuilder : IPresentationBuilder
             return CalculateSingleRowPositions(
                 plan.Nodes.Count,
                 bounds,
-                maximumHeight: Emu(2.65));
+                maximumHeight: Emu(2.25),
+                maximumWidth: Emu(3.25));
         }
 
         if (plan.Kind == "comparison" && plan.Nodes.Count <= 4)
@@ -778,7 +854,8 @@ public sealed class OpenXmlPresentationBuilder : IPresentationBuilder
             return CalculateSingleRowPositions(
                 plan.Nodes.Count,
                 bounds,
-                maximumHeight: Emu(3.25));
+                maximumHeight: Emu(2.85),
+                maximumWidth: Emu(3.35));
         }
 
         if (plan.Kind == "cards" && plan.Nodes.Count <= 3)
@@ -786,7 +863,8 @@ public sealed class OpenXmlPresentationBuilder : IPresentationBuilder
             return CalculateSingleRowPositions(
                 plan.Nodes.Count,
                 bounds,
-                maximumHeight: Emu(3.05));
+                maximumHeight: Emu(2.7),
+                maximumWidth: Emu(3.45));
         }
 
         var maximumColumns = plan.Kind == "cards" ? 3 : 4;
@@ -797,21 +875,31 @@ public sealed class OpenXmlPresentationBuilder : IPresentationBuilder
                 ? nodeCount
                 : (int)Math.Ceiling(Math.Sqrt(nodeCount)));
         var rows = (int)Math.Ceiling(nodeCount / (double)columns);
-        var horizontalGap = Emu(0.22);
-        var verticalGap = Emu(0.25);
+        var horizontalGap = Emu(0.42);
+        var verticalGap = Emu(0.45);
         var width = (bounds.Width - (horizontalGap * (columns - 1))) / columns;
         var height = (bounds.Height - (verticalGap * (rows - 1))) / rows;
         var positions = new List<SlideRect>(nodeCount);
 
-        for (var index = 0; index < nodeCount; index++)
+        for (var row = 0; row < rows; row++)
         {
-            var row = index / columns;
-            var column = index % columns;
-            positions.Add(new SlideRect(
-                bounds.X + (column * (width + horizontalGap)),
-                bounds.Y + (row * (height + verticalGap)),
-                width,
-                height));
+            var rowItemCount = Math.Min(
+                columns,
+                nodeCount - (row * columns));
+            var rowWidth =
+                (width * rowItemCount)
+                + (horizontalGap * (rowItemCount - 1));
+            var rowStartX =
+                bounds.X + ((bounds.Width - rowWidth) / 2);
+
+            for (var column = 0; column < rowItemCount; column++)
+            {
+                positions.Add(new SlideRect(
+                    rowStartX + (column * (width + horizontalGap)),
+                    bounds.Y + (row * (height + verticalGap)),
+                    width,
+                    height));
+            }
         }
 
         return positions;
@@ -820,19 +908,25 @@ public sealed class OpenXmlPresentationBuilder : IPresentationBuilder
     private static IReadOnlyList<SlideRect> CalculateSingleRowPositions(
         int nodeCount,
         SlideRect bounds,
-        long maximumHeight)
+        long maximumHeight,
+        long maximumWidth)
     {
-        var horizontalGap = Emu(0.22);
-        var width =
+        var horizontalGap = Emu(nodeCount >= 5 ? 0.42 : 0.5);
+        var availableWidth =
             (bounds.Width - (horizontalGap * (nodeCount - 1))) / nodeCount;
+        var width = Math.Min(availableWidth, maximumWidth);
         var height = Math.Min(bounds.Height, maximumHeight);
+        var totalWidth =
+            (width * nodeCount)
+            + (horizontalGap * (nodeCount - 1));
+        var startX = bounds.X + ((bounds.Width - totalWidth) / 2);
         var y = bounds.Y + ((bounds.Height - height) / 2);
         var positions = new List<SlideRect>(nodeCount);
 
         for (var index = 0; index < nodeCount; index++)
         {
             positions.Add(new SlideRect(
-                bounds.X + (index * (width + horizontalGap)),
+                startX + (index * (width + horizontalGap)),
                 y,
                 width,
                 height));
@@ -890,8 +984,111 @@ public sealed class OpenXmlPresentationBuilder : IPresentationBuilder
         SlideRect from,
         SlideRect to,
         string label,
+        SlideRect bounds,
         PresentationRenderTheme theme)
     {
+        var segments = CalculateConnectionSegments(from, to, bounds);
+        for (var index = 0; index < segments.Count; index++)
+        {
+            AddConnectionSegment(
+                shapeTree,
+                ref shapeId,
+                segments[index],
+                hasArrow: index == segments.Count - 1,
+                theme);
+        }
+
+        if (label.Length > 0 && segments.Count == 1)
+        {
+            TryAddConnectionLabel(
+                shapeTree,
+                ref shapeId,
+                segments[0],
+                label,
+                theme);
+        }
+    }
+
+    private static IReadOnlyList<ConnectionSegment> CalculateConnectionSegments(
+        SlideRect from,
+        SlideRect to,
+        SlideRect bounds)
+    {
+        if (from.Bottom <= to.Y || to.Bottom <= from.Y)
+        {
+            var targetIsBelow = to.CenterY > from.CenterY;
+            var start = targetIsBelow
+                ? new SlidePoint(from.CenterX, from.Bottom)
+                : new SlidePoint(from.CenterX, from.Y);
+            var end = targetIsBelow
+                ? new SlidePoint(to.CenterX, to.Y)
+                : new SlidePoint(to.CenterX, to.Bottom);
+
+            if (Math.Abs(start.X - end.X) <= Emu(0.02))
+            {
+                return [new ConnectionSegment(start, end)];
+            }
+
+            var routeY = (start.Y + end.Y) / 2;
+            return
+            [
+                new ConnectionSegment(
+                    start,
+                    new SlidePoint(start.X, routeY)),
+                new ConnectionSegment(
+                    new SlidePoint(start.X, routeY),
+                    new SlidePoint(end.X, routeY)),
+                new ConnectionSegment(
+                    new SlidePoint(end.X, routeY),
+                    end),
+            ];
+        }
+
+        if (from.Right <= to.X || to.Right <= from.X)
+        {
+            var targetIsRight = to.CenterX > from.CenterX;
+            var start = targetIsRight
+                ? new SlidePoint(from.Right, from.CenterY)
+                : new SlidePoint(from.X, from.CenterY);
+            var end = targetIsRight
+                ? new SlidePoint(to.X, to.CenterY)
+                : new SlidePoint(to.Right, to.CenterY);
+
+            if (Math.Abs(start.Y - end.Y) <= Emu(0.02)
+                && Math.Abs(start.X - end.X) <= Emu(1.0))
+            {
+                return [new ConnectionSegment(start, end)];
+            }
+
+            var routeBelow = from.CenterY <= bounds.CenterY;
+            var routeY = routeBelow
+                ? Math.Min(
+                    Math.Max(from.Bottom, to.Bottom) + Emu(0.16),
+                    bounds.Bottom - Emu(0.08))
+                : Math.Max(
+                    Math.Min(from.Y, to.Y) - Emu(0.16),
+                    bounds.Y + Emu(0.08));
+            var routedStart = routeBelow
+                ? new SlidePoint(from.CenterX, from.Bottom)
+                : new SlidePoint(from.CenterX, from.Y);
+            var routedEnd = routeBelow
+                ? new SlidePoint(to.CenterX, to.Bottom)
+                : new SlidePoint(to.CenterX, to.Y);
+
+            return
+            [
+                new ConnectionSegment(
+                    routedStart,
+                    new SlidePoint(routedStart.X, routeY)),
+                new ConnectionSegment(
+                    new SlidePoint(routedStart.X, routeY),
+                    new SlidePoint(routedEnd.X, routeY)),
+                new ConnectionSegment(
+                    new SlidePoint(routedEnd.X, routeY),
+                    routedEnd),
+            ];
+        }
+
         var deltaX = to.CenterX - from.CenterX;
         var deltaY = to.CenterY - from.CenterY;
         var fromScale = CalculateBoundaryScale(from, deltaX, deltaY);
@@ -900,22 +1097,45 @@ public sealed class OpenXmlPresentationBuilder : IPresentationBuilder
         var startY = from.CenterY + (long)Math.Round(deltaY * fromScale);
         var endX = to.CenterX - (long)Math.Round(deltaX * toScale);
         var endY = to.CenterY - (long)Math.Round(deltaY * toScale);
-        var x = Math.Min(startX, endX);
-        var y = Math.Min(startY, endY);
-        var width = Math.Max(Math.Abs(endX - startX), 1);
-        var height = Math.Max(Math.Abs(endY - startY), 1);
+        return
+        [
+            new ConnectionSegment(
+                new SlidePoint(startX, startY),
+                new SlidePoint(endX, endY)),
+        ];
+    }
 
+    private static void AddConnectionSegment(
+        P.ShapeTree shapeTree,
+        ref uint shapeId,
+        ConnectionSegment segment,
+        bool hasArrow,
+        PresentationRenderTheme theme)
+    {
+        var x = Math.Min(segment.Start.X, segment.End.X);
+        var y = Math.Min(segment.Start.Y, segment.End.Y);
+        var width = Math.Max(
+            Math.Abs(segment.End.X - segment.Start.X),
+            1);
+        var height = Math.Max(
+            Math.Abs(segment.End.Y - segment.Start.Y),
+            1);
         var transform = new A.Transform2D(
             new A.Offset { X = x, Y = y },
             new A.Extents { Cx = width, Cy = height })
         {
-            HorizontalFlip = endX < startX,
-            VerticalFlip = endY < startY,
+            HorizontalFlip = segment.End.X < segment.Start.X,
+            VerticalFlip = segment.End.Y < segment.Start.Y,
         };
         var outline = new A.Outline(
             new A.SolidFill(new A.RgbColorModelHex { Val = theme.Primary }),
             new A.HeadEnd { Type = A.LineEndValues.None },
-            new A.TailEnd { Type = A.LineEndValues.Triangle })
+            new A.TailEnd
+            {
+                Type = hasArrow
+                    ? A.LineEndValues.Triangle
+                    : A.LineEndValues.None,
+            })
         {
             Width = 22_860,
         };
@@ -937,30 +1157,51 @@ public sealed class OpenXmlPresentationBuilder : IPresentationBuilder
                     Preset = A.ShapeTypeValues.Line,
                 },
                 outline)));
+    }
 
-        if (label.Length > 0)
+    private static void TryAddConnectionLabel(
+        P.ShapeTree shapeTree,
+        ref uint shapeId,
+        ConnectionSegment segment,
+        string label,
+        PresentationRenderTheme theme)
+    {
+        if (Math.Abs(segment.Start.Y - segment.End.Y) > Emu(0.02))
         {
-            AddTextBox(
-                shapeTree,
-                ref shapeId,
-                theme,
-                ((startX + endX) / 2) - Emu(0.7),
-                ((startY + endY) / 2) - Emu(0.18),
-                Emu(1.4),
-                Emu(0.36),
-                [
-                    new TextParagraph(
-                        label,
-                        theme.ConnectionLabelSize,
-                        theme.TextMuted,
-                        false),
-                ],
-                A.TextAnchoringTypeValues.Center,
-                theme.Surface,
-                theme.Border,
-                cornerRadius: theme.RoundedCards,
-                horizontalAlignment: A.TextAlignmentTypeValues.Center);
+            return;
         }
+
+        var availableWidth = Math.Abs(segment.End.X - segment.Start.X);
+        var estimatedWidth = Emu(Math.Clamp(
+            0.18 + (label.Length * 0.065),
+            0.42,
+            1.2));
+        if (estimatedWidth + Emu(0.06) > availableWidth)
+        {
+            return;
+        }
+
+        AddTextBox(
+            shapeTree,
+            ref shapeId,
+            theme,
+            ((segment.Start.X + segment.End.X) / 2)
+                - (estimatedWidth / 2),
+            segment.Start.Y - Emu(0.16),
+            estimatedWidth,
+            Emu(0.32),
+            [
+                new TextParagraph(
+                    label,
+                    theme.ConnectionLabelSize,
+                    theme.TextMuted,
+                    false),
+            ],
+            A.TextAnchoringTypeValues.Center,
+            theme.Surface,
+            theme.Border,
+            cornerRadius: theme.RoundedCards,
+            horizontalAlignment: A.TextAlignmentTypeValues.Center);
     }
 
     private static double CalculateBoundaryScale(
@@ -995,13 +1236,14 @@ public sealed class OpenXmlPresentationBuilder : IPresentationBuilder
         var sourceText = sources.Count > 0
             ? $"Sources: {string.Join(" · ", sources)}"
             : "Validate current details against Microsoft documentation.";
+        sourceText = TruncateText(sourceText, 125);
         AddTextBox(
             shapeTree,
             ref shapeId,
             theme,
             Emu(0.6),
             Emu(6.45),
-            Emu(9.6),
+            Emu(8.25),
             Emu(0.28),
             [
                 new TextParagraph(
@@ -1015,9 +1257,9 @@ public sealed class OpenXmlPresentationBuilder : IPresentationBuilder
             shapeTree,
             ref shapeId,
             theme,
-            Emu(10.3),
+            Emu(9.05),
             Emu(6.45),
-            Emu(2.3),
+            Emu(3.65),
             Emu(0.28),
             [
                 new TextParagraph(
@@ -1028,6 +1270,13 @@ public sealed class OpenXmlPresentationBuilder : IPresentationBuilder
             ],
             A.TextAnchoringTypeValues.Center,
             horizontalAlignment: A.TextAlignmentTypeValues.Right);
+    }
+
+    private static string TruncateText(string value, int maximumLength)
+    {
+        return value.Length <= maximumLength
+            ? value
+            : $"{value[..(maximumLength - 3)]}...";
     }
 
     private static void AddRectangle(
@@ -1100,16 +1349,19 @@ public sealed class OpenXmlPresentationBuilder : IPresentationBuilder
                 Width = 12_700,
             });
 
+        var bodyProperties = new A.BodyProperties
+        {
+            Wrap = A.TextWrappingValues.Square,
+            Anchor = verticalAlignment,
+            LeftInset = 91_440,
+            RightInset = 91_440,
+            TopInset = 45_720,
+            BottomInset = 45_720,
+        };
+        bodyProperties.Append(new A.NormalAutoFit());
+
         var textBody = new P.TextBody(
-            new A.BodyProperties
-            {
-                Wrap = A.TextWrappingValues.Square,
-                Anchor = verticalAlignment,
-                LeftInset = 91_440,
-                RightInset = 91_440,
-                TopInset = 45_720,
-                BottomInset = 45_720,
-            },
+            bodyProperties,
             new A.ListStyle());
 
         foreach (var paragraph in paragraphs)
@@ -1398,6 +1650,12 @@ public sealed class OpenXmlPresentationBuilder : IPresentationBuilder
         bool Bold,
         bool UseDisplayFont = false);
 
+    private readonly record struct SlidePoint(long X, long Y);
+
+    private sealed record ConnectionSegment(
+        SlidePoint Start,
+        SlidePoint End);
+
     private sealed record PresentationRenderTheme(
         string Canvas,
         string Surface,
@@ -1484,6 +1742,10 @@ public sealed class OpenXmlPresentationBuilder : IPresentationBuilder
         long Width,
         long Height)
     {
+        public long Right => X + Width;
+
+        public long Bottom => Y + Height;
+
         public long CenterX => X + (Width / 2);
 
         public long CenterY => Y + (Height / 2);

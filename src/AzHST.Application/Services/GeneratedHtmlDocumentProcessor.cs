@@ -17,6 +17,9 @@ public sealed partial class GeneratedHtmlDocumentProcessor
         <meta name="referrer" content="no-referrer">
         """;
 
+    private static readonly PresentationPlanHtmlManifest PresentationPlanManifest =
+        new();
+
     private readonly IAzureIconCatalog _azureIcons;
 
     public GeneratedHtmlDocumentProcessor(IAzureIconCatalog? azureIcons = null)
@@ -55,6 +58,7 @@ public sealed partial class GeneratedHtmlDocumentProcessor
         }
 
         ValidateExperienceContract(html);
+        ValidatePresentationNarrative(html);
 
         html = ResolveAzureIconPlaceholders(html);
         if (html.Length > MaximumDocumentLength)
@@ -83,12 +87,28 @@ public sealed partial class GeneratedHtmlDocumentProcessor
         return html;
     }
 
+    private static void ValidatePresentationNarrative(string html)
+    {
+        try
+        {
+            _ = PresentationPlanManifest.ExtractRequired(html);
+        }
+        catch (InvalidDataException exception)
+        {
+            throw new VisualizationGenerationException(
+                "Copilot returned a page without a valid PowerPoint narrative. Try generating the visualization again.",
+                exception);
+        }
+    }
+
     private static void ValidateExperienceContract(string html)
     {
         var hasInlineScript = false;
         foreach (Match match in InlineScriptRegex().Matches(html))
         {
-            if (!string.IsNullOrWhiteSpace(match.Groups["content"].Value))
+            if (!PresentationPlanManifest.IsManifestAttributes(
+                    match.Groups["attributes"].Value)
+                && !string.IsNullOrWhiteSpace(match.Groups["content"].Value))
             {
                 hasInlineScript = true;
                 break;
@@ -321,7 +341,7 @@ public sealed partial class GeneratedHtmlDocumentProcessor
     private static partial Regex BodyElementRegex();
 
     [GeneratedRegex(
-        """<script\b[^>]*>(?<content>[\s\S]*?)</script\s*>""",
+        """<script\b(?<attributes>[^>]*)>(?<content>[\s\S]*?)</script\s*>""",
         RegexOptions.IgnoreCase | RegexOptions.CultureInvariant)]
     private static partial Regex InlineScriptRegex();
 
