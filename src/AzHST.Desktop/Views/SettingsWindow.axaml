@@ -85,10 +85,23 @@
           Content="Cancel" />
       <Button
           MinWidth="110"
+          AutomationProperties.Name="Save settings"
           Background="#2563EB"
           Click="Save_Click"
-          Content="Save"
-          Foreground="White" />
+          Foreground="White">
+        <StackPanel
+            HorizontalAlignment="Center"
+            Orientation="Horizontal"
+            Spacing="8">
+          <PathIcon
+              Width="16"
+              Height="16"
+              Data="{StaticResource SaveIcon}" />
+          <TextBlock
+              VerticalAlignment="Center"
+              Text="Save" />
+        </StackPanel>
+      </Button>
     </StackPanel>
   </Grid>
 </Window>
