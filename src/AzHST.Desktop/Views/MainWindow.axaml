@@ -10,6 +10,7 @@
     Height="900"
     MinWidth="1040"
     MinHeight="700"
+    Icon="/Assets/azhst-icon.ico"
     Background="#0B1020">
 
   <Window.Styles>
@@ -57,19 +58,6 @@
         BorderThickness="0,0,1,0">
       <Grid RowDefinitions="Auto,*,Auto">
         <StackPanel Spacing="10">
-          <Border
-              Width="48"
-              Height="48"
-              HorizontalAlignment="Left"
-              Background="#2563EB"
-              CornerRadius="12">
-            <TextBlock
-                HorizontalAlignment="Center"
-                VerticalAlignment="Center"
-                FontSize="20"
-                FontWeight="Bold"
-                Text="AZ" />
-          </Border>
           <TextBlock
               FontSize="24"
               FontWeight="Bold"
@@ -116,10 +104,54 @@
               FontWeight="SemiBold"
               Foreground="#7186AD"
               Text="CONFIGURATION" />
-          <TextBlock
-              Foreground="#AFC0DF"
-              Text="{Binding SettingsSummary}"
-              TextWrapping="Wrap" />
+          <Border
+              Padding="12"
+              Background="#121D34"
+              BorderBrush="#253454"
+              BorderThickness="1"
+              CornerRadius="8">
+            <StackPanel Spacing="9">
+              <Grid ColumnDefinitions="Auto,*">
+                <TextBlock
+                    FontSize="11"
+                    Foreground="#7186AD"
+                    Text="HTML Theme" />
+                <TextBlock
+                    FontSize="11"
+                    Grid.Column="1"
+                    HorizontalAlignment="Right"
+                    FontWeight="SemiBold"
+                    Foreground="#DCE7FF"
+                    Text="{Binding HtmlThemeName}" />
+              </Grid>
+              <Grid ColumnDefinitions="Auto,*">
+                <TextBlock
+                    FontSize="11"
+                    Foreground="#7186AD"
+                    Text="PowerPoint" />
+                <TextBlock
+                    FontSize="11"
+                    Grid.Column="1"
+                    HorizontalAlignment="Right"
+                    FontWeight="SemiBold"
+                    Foreground="#DCE7FF"
+                    Text="{Binding PresentationThemeName}" />
+              </Grid>
+              <Grid ColumnDefinitions="Auto,*">
+                <TextBlock
+                    FontSize="11"
+                    Foreground="#7186AD"
+                    Text="Open results" />
+                <TextBlock
+                    FontSize="11"
+                    Grid.Column="1"
+                    HorizontalAlignment="Right"
+                    FontWeight="SemiBold"
+                    Foreground="#DCE7FF"
+                    Text="{Binding ResultOpeningMode}" />
+              </Grid>
+            </StackPanel>
+          </Border>
           <Button
               Classes="secondary"
               Command="{Binding OpenSettingsCommand}"
@@ -135,7 +167,7 @@
           <TextBlock
               FontSize="11"
               Foreground="#53698F"
-              Text="Version 0.1" />
+              Text="{Binding ApplicationIdentityText}" />
         </StackPanel>
       </Grid>
     </Border>

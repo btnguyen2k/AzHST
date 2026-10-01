@@ -6,6 +6,7 @@
     Width="650"
     Height="470"
     CanResize="False"
+    Icon="/Assets/azhst-icon.ico"
     Background="#0E162A"
     WindowStartupLocation="CenterOwner">
 

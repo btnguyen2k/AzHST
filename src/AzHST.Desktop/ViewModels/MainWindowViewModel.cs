@@ -2,6 +2,7 @@ using AzHST.Application.Abstractions;
 using AzHST.Application.Exceptions;
 using AzHST.Application.Models;
 using AzHST.Application.Services;
+using AzHST.Desktop.Models;
 using AzHST.Desktop.Services;
 using CommunityToolkit.Mvvm.ComponentModel;
 using CommunityToolkit.Mvvm.Input;
@@ -14,6 +15,7 @@ public sealed partial class MainWindowViewModel : ObservableObject
     private readonly GeneratePresentationUseCase _presentationUseCase;
     private readonly IGitHubAuthenticationService _authenticationService;
     private readonly ISettingsRepository _settingsRepository;
+    private readonly IOutputThemeCatalog _themes;
     private readonly IExternalBrowser _browser;
     private readonly IExternalFileLauncher _fileLauncher;
     private readonly IClipboardService _clipboardService;
@@ -69,7 +71,9 @@ public sealed partial class MainWindowViewModel : ObservableObject
     private string? _presentationFilePath;
 
     [ObservableProperty]
-    [NotifyPropertyChangedFor(nameof(SettingsSummary))]
+    [NotifyPropertyChangedFor(nameof(HtmlThemeName))]
+    [NotifyPropertyChangedFor(nameof(PresentationThemeName))]
+    [NotifyPropertyChangedFor(nameof(ResultOpeningMode))]
     private AppSettings _settings = new();
 
     public MainWindowViewModel(
@@ -77,11 +81,13 @@ public sealed partial class MainWindowViewModel : ObservableObject
         GeneratePresentationUseCase presentationUseCase,
         IGitHubAuthenticationService authenticationService,
         ISettingsRepository settingsRepository,
+        IOutputThemeCatalog themes,
         IExternalBrowser browser,
         IExternalFileLauncher fileLauncher,
         IClipboardService clipboardService,
         ISettingsDialogService settingsDialogService,
         IGitHubLoginDialogService loginDialogService,
+        ApplicationIdentity applicationIdentity,
         WebViewAvailability webViewAvailability,
         bool skipGitHubSignInAtStartup = false)
     {
@@ -89,11 +95,13 @@ public sealed partial class MainWindowViewModel : ObservableObject
         _presentationUseCase = presentationUseCase;
         _authenticationService = authenticationService;
         _settingsRepository = settingsRepository;
+        _themes = themes;
         _browser = browser;
         _fileLauncher = fileLauncher;
         _clipboardService = clipboardService;
         _settingsDialogService = settingsDialogService;
         _loginDialogService = loginDialogService;
+        ApplicationIdentityText = applicationIdentity.DisplayText;
         _webViewAvailability = webViewAvailability;
         _skipGitHubSignInAtStartup = skipGitHubSignInAtStartup;
     }
@@ -115,11 +123,19 @@ public sealed partial class MainWindowViewModel : ObservableObject
 
     public string WebViewAvailabilityMessage => _webViewAvailability.Message;
 
-    public string SettingsSummary =>
-        $"{Settings.Model} | "
-        + $"{(Settings.OpenResultsInExternalBrowser ? "Browser + preview" : "Embedded preview")} | "
-        + $"HTML: {Settings.Themes.HtmlThemeId} | "
-        + $"PPTX: {Settings.Themes.PresentationThemeId}";
+    public string ApplicationIdentityText { get; }
+
+    public string HtmlThemeName => ResolveThemeName(
+        _themes.HtmlThemes,
+        Settings.Themes.HtmlThemeId);
+
+    public string PresentationThemeName => ResolveThemeName(
+        _themes.PresentationThemes,
+        Settings.Themes.PresentationThemeId);
+
+    public string ResultOpeningMode => Settings.OpenResultsInExternalBrowser
+        ? "Preview + browser"
+        : "Embedded preview";
 
     public async Task InitializeAsync()
     {
@@ -167,6 +183,19 @@ public sealed partial class MainWindowViewModel : ObservableObject
         {
             IsBusy = false;
         }
+    }
+
+    private static string ResolveThemeName(
+        IReadOnlyList<OutputThemeOption> options,
+        string selectedId)
+    {
+        return options.FirstOrDefault(
+                option => string.Equals(
+                    option.Id,
+                    selectedId,
+                    StringComparison.OrdinalIgnoreCase))
+            ?.DisplayName
+            ?? selectedId;
     }
 
     private bool CanGenerate()

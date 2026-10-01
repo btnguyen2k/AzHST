@@ -1,4 +1,5 @@
 using AzHST.Application.Services;
+using AzHST.Desktop.Models;
 using AzHST.Desktop.Services;
 using AzHST.Desktop.ViewModels;
 using AzHST.Desktop.Views;
@@ -23,6 +24,8 @@ internal static class ApplicationCompositionRoot
         var documentProcessor = new GeneratedHtmlDocumentProcessor(azureIcons);
         var artifactIdGenerator = new VisualizationArtifactIdGenerator();
         var webViewAvailability = WebViewAvailability.Detect();
+        var applicationIdentity = ApplicationIdentity.FromAssembly(
+            typeof(App).Assembly);
         var generationUseCase = new GenerateVisualizationUseCase(
             copilotClient,
             documentProcessor,
@@ -47,11 +50,13 @@ internal static class ApplicationCompositionRoot
             presentationUseCase,
             authenticationService,
             settingsRepository,
+            themes,
             browser,
             browser,
             clipboardService,
             settingsDialogService,
             loginDialogService,
+            applicationIdentity,
             webViewAvailability,
             testOptions.SkipGitHubSignInAtStartup
                 && !testOptions.SimulateMissingGitHubCli);

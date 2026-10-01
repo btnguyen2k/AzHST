@@ -74,15 +74,12 @@ public sealed partial class GeneratePresentationUseCase
                 "The visualization artifact is missing its ID or output directory.");
         }
 
-        var model = string.IsNullOrWhiteSpace(settings.Model)
-            ? AppSettings.DefaultModel
-            : settings.Model.Trim();
         var theme = _themes.GetPresentationTheme(
             settings.Themes.PresentationThemeId);
 
         var rawPlan = await _planner.CreatePresentationPlanAsync(
             normalizedQuery,
-            model,
+            CopilotModelSelection.Automatic,
             visualization.Id,
             progress,
             cancellationToken);

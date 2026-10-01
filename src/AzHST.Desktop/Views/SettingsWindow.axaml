@@ -7,8 +7,9 @@
     x:DataType="vm:SettingsWindowViewModel"
     Title="AzHST settings"
     Width="560"
-    Height="650"
+    Height="550"
     CanResize="False"
+    Icon="/Assets/azhst-icon.ico"
     Background="#0E162A"
     WindowStartupLocation="CenterOwner">
 
@@ -21,23 +22,10 @@
           Text="Configuration" />
       <TextBlock
           Foreground="#8FA4CB"
-          Text="Choose the Copilot model, output themes, and how generated pages are opened." />
+          Text="Choose output themes and how generated pages are opened." />
     </StackPanel>
 
     <StackPanel Grid.Row="1" Margin="0,26,0,0" Spacing="10">
-      <TextBlock
-          FontWeight="SemiBold"
-          Foreground="#DCE7FF"
-          Text="Copilot model" />
-      <TextBox
-          PlaceholderText="auto"
-          Text="{Binding Model, Mode=TwoWay}" />
-      <TextBlock
-          Margin="0,0,0,10"
-          FontSize="12"
-          Foreground="#7186AD"
-          Text="Use 'auto' to let GitHub Copilot choose an available model." />
-
       <TextBlock
           FontWeight="SemiBold"
           Foreground="#DCE7FF"

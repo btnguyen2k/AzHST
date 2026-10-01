@@ -23,11 +23,11 @@ public sealed class GeneratePresentationUseCaseTests
         var result = await useCase.ExecuteAsync(
             "  Explain Azure Application Gateway  ",
             visualization,
-            new AppSettings { Model = "  gpt-5  " });
+            new AppSettings());
 
         Assert.Equal(["plan", "build"], calls);
         Assert.Equal("Explain Azure Application Gateway", planner.Query);
-        Assert.Equal("gpt-5", planner.Model);
+        Assert.Equal(CopilotModelSelection.Automatic, planner.Model);
         Assert.Equal(visualization.Id, planner.VisualizationId);
         Assert.Same(visualization, builder.Visualization);
         Assert.Equal(
@@ -38,7 +38,7 @@ public sealed class GeneratePresentationUseCaseTests
     }
 
     [Fact]
-    public async Task ExecuteAsync_UsesDefaultModelWhenSettingIsBlank()
+    public async Task ExecuteAsync_AlwaysUsesAutomaticModelSelection()
     {
         var planner = new StubPlanner(CreateValidPlan(), []);
         var useCase = new GeneratePresentationUseCase(
@@ -50,9 +50,9 @@ public sealed class GeneratePresentationUseCaseTests
         await useCase.ExecuteAsync(
             "Explain Azure Application Gateway",
             CreateVisualization(),
-            new AppSettings { Model = " " });
+            new AppSettings());
 
-        Assert.Equal(AppSettings.DefaultModel, planner.Model);
+        Assert.Equal(CopilotModelSelection.Automatic, planner.Model);
     }
 
     [Fact]

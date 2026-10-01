@@ -6,9 +6,6 @@ namespace AzHST.Desktop.ViewModels;
 public sealed partial class SettingsWindowViewModel : ObservableObject
 {
     [ObservableProperty]
-    private string _model;
-
-    [ObservableProperty]
     private string _outputDirectory;
 
     [ObservableProperty]
@@ -43,7 +40,6 @@ public sealed partial class SettingsWindowViewModel : ObservableObject
                 nameof(presentationThemeOptions));
         }
 
-        _model = settings.Model;
         _outputDirectory = settings.OutputDirectory;
         _openResultsInExternalBrowser = settings.OpenResultsInExternalBrowser;
         HtmlThemeOptions = htmlThemeOptions;
@@ -64,7 +60,6 @@ public sealed partial class SettingsWindowViewModel : ObservableObject
     {
         return new AppSettings
         {
-            Model = Model,
             OutputDirectory = OutputDirectory,
             OpenResultsInExternalBrowser = OpenResultsInExternalBrowser,
             Themes = new OutputThemeSettings

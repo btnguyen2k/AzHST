@@ -4,13 +4,14 @@
 
 AzHST is a cross-platform Avalonia desktop application that turns questions about Azure and Microsoft services into visual, interactive HTML explanations. GitHub Copilot generates a self-contained page, which AzHST stores locally and displays in an embedded native WebView or opens in the default browser.
 
-This repository contains the first functional vertical slice. Authentication, configuration, Copilot generation, HTML validation, local persistence, embedded preview, and external-browser launch are implemented. Conversation history, model discovery, export, and richer follow-up workflows remain future work.
+This repository contains the first functional vertical slice. Authentication, configuration, Copilot generation, HTML validation, local persistence, embedded preview, and external-browser launch are implemented. Conversation history, export, and richer follow-up workflows remain future work.
 
 ## Features
 
 - Avalonia 12 desktop UI targeting .NET 10
 - GitHub CLI sign-in flow and authentication status
 - GitHub Copilot SDK integration with no agent tools or host access enabled
+- Automatic Copilot model selection
 - Copilot-powered query validation for Azure relevance and visual suitability
 - Visual prompts for service explanations, comparisons, integrations, and architecture proposals
 - Self-contained HTML generation with inline CSS, JavaScript, SVG, and official Azure service icons

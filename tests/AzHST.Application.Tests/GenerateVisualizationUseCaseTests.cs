@@ -54,7 +54,6 @@ public sealed class GenerateVisualizationUseCaseTests
             "  Explain Azure Functions  ",
             new AppSettings
             {
-                Model = "  gpt-5  ",
                 OutputDirectory = "generated",
             });
 
@@ -64,8 +63,8 @@ public sealed class GenerateVisualizationUseCaseTests
         Assert.Equal(["assess", "generate"], client.CallOrder);
         Assert.Equal("Explain Azure Functions", client.AssessmentQuery);
         Assert.Equal("Explain Azure Functions", client.GenerationQuery);
-        Assert.Equal("gpt-5", client.AssessmentModel);
-        Assert.Equal("gpt-5", client.GenerationModel);
+        Assert.Equal(CopilotModelSelection.Automatic, client.AssessmentModel);
+        Assert.Equal(CopilotModelSelection.Automatic, client.GenerationModel);
         Assert.Equal(expectedId, client.VisualizationId);
         Assert.Equal(
             OutputThemeSettings.DefaultHtmlThemeId,
@@ -78,15 +77,15 @@ public sealed class GenerateVisualizationUseCaseTests
     }
 
     [Fact]
-    public async Task ExecuteAsync_UsesAutoModelWhenSettingIsBlank()
+    public async Task ExecuteAsync_AlwaysUsesAutomaticModelSelection()
     {
         var client = CreateValidClient();
         var useCase = CreateUseCase(client, new StubArtifactStore());
 
-        await useCase.ExecuteAsync("Compare two services", new AppSettings { Model = " " });
+        await useCase.ExecuteAsync("Compare two services", new AppSettings());
 
-        Assert.Equal(AppSettings.DefaultModel, client.AssessmentModel);
-        Assert.Equal(AppSettings.DefaultModel, client.GenerationModel);
+        Assert.Equal(CopilotModelSelection.Automatic, client.AssessmentModel);
+        Assert.Equal(CopilotModelSelection.Automatic, client.GenerationModel);
     }
 
     [Fact]

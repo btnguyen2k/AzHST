@@ -245,13 +245,14 @@ Version one persists:
 
 | Setting | Default | Purpose |
 |---|---|---|
-| Model | `auto` | Let Copilot choose an available model |
 | Output directory | `.\generated` under the working directory | Store `<id>\index.html` visualization artifacts |
 | Open externally | `false` | Also launch each result in the default browser |
 | HTML theme | `azure-night` | Apply the Azure Night visual contract and authoritative CSS variables |
 | PowerPoint theme | `professional-light` | Apply the Professional Light palette, typography, and appearance |
 
-Model discovery is deliberately deferred. Free-text model configuration allows testing new Copilot models without releasing a new desktop build, while invalid model errors remain visible.
+Copilot model selection is always `auto`. It is an application behavior rather
+than a user setting, so the SDK chooses an available model for every
+assessment, visualization, and presentation-planning session.
 
 The Settings dialog lists themes from `IOutputThemeCatalog` and persists only
 their IDs. Missing or blank theme IDs in legacy settings receive defaults.
@@ -262,9 +263,8 @@ See `.dev.md` for the complete theme schema and extension process.
 Likely next increments:
 
 1. Persist conversations and reuse a scoped Copilot session for follow-up questions.
-2. Query the SDK's model catalog and replace free-text model entry with validated selection.
-3. Add generation history, delete/export controls, and HTML thumbnails.
-4. Intercept WebView navigation and add a configurable script-disabled mode.
-5. Introduce curated Azure knowledge retrieval with source metadata and freshness indicators.
-6. Add platform packaging, update strategy, telemetry consent, and crash diagnostics.
-7. Add UI automation and platform-specific WebView smoke tests in CI.
+2. Add generation history, delete/export controls, and HTML thumbnails.
+3. Intercept WebView navigation and add a configurable script-disabled mode.
+4. Introduce curated Azure knowledge retrieval with source metadata and freshness indicators.
+5. Add platform packaging, update strategy, telemetry consent, and crash diagnostics.
+6. Add UI automation and platform-specific WebView smoke tests in CI.

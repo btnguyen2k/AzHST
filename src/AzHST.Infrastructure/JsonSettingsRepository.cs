@@ -98,9 +98,6 @@ public sealed class JsonSettingsRepository : ISettingsRepository
 
         return settings with
         {
-            Model = string.IsNullOrWhiteSpace(settings.Model)
-                ? AppSettings.DefaultModel
-                : settings.Model.Trim(),
             OutputDirectory = string.IsNullOrWhiteSpace(settings.OutputDirectory)
                 ? _defaultOutputDirectory
                 : Path.GetFullPath(settings.OutputDirectory.Trim()),
