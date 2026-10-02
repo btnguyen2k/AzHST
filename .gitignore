@@ -7,6 +7,11 @@
 ##
 ## Get latest from https://github.com/github/gitignore/blob/main/Dotnet.gitignore
 
+./generated/
+/data/*.db
+/data/*.db-shm
+/data/*.db-wal
+
 # Build results
 [Dd]ebug/
 [Dd]ebugPublic/
@@ -20,6 +25,7 @@ x86/
 bld/
 [Bb]in/
 [Oo]bj/
+[Gg]enerated/
 [Ll]og/
 [Ll]ogs/
 
@@ -40,6 +46,7 @@ ScaffoldingReadMe.txt
 .env
 
 # Others
+.vs/
 ~$*
 *~
 CodeCoverage/

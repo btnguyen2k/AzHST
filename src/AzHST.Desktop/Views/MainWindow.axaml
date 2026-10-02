@@ -1,0 +1,622 @@
+<Window
+    x:Class="AzHST.Desktop.Views.MainWindow"
+    xmlns="https://github.com/avaloniaui"
+    xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+    xmlns:sys="using:System"
+    xmlns:vm="using:AzHST.Desktop.ViewModels"
+    x:DataType="vm:MainWindowViewModel"
+    Title="AzHST - Azure, visualized"
+    Width="1440"
+    Height="900"
+    MinWidth="1040"
+    MinHeight="700"
+    Icon="/Assets/azhst-icon.ico"
+    Background="#0B1020">
+
+  <Window.Styles>
+    <Style Selector="Button">
+      <Setter Property="MinHeight" Value="40" />
+      <Setter Property="Padding" Value="16,8" />
+      <Setter Property="CornerRadius" Value="8" />
+      <Setter Property="FontWeight" Value="SemiBold" />
+    </Style>
+    <Style Selector="Button.primary">
+      <Setter Property="Background" Value="#2563EB" />
+      <Setter Property="Foreground" Value="White" />
+    </Style>
+    <Style Selector="Button.secondary">
+      <Setter Property="Background" Value="#17213B" />
+      <Setter Property="Foreground" Value="#DCE7FF" />
+      <Setter Property="BorderBrush" Value="#2B3A61" />
+      <Setter Property="BorderThickness" Value="1" />
+    </Style>
+    <Style Selector="Button.example">
+      <Setter Property="HorizontalContentAlignment" Value="Left" />
+      <Setter Property="HorizontalAlignment" Value="Stretch" />
+      <Setter Property="Background" Value="#121B31" />
+      <Setter Property="Foreground" Value="#CFDAF2" />
+      <Setter Property="BorderBrush" Value="#253454" />
+      <Setter Property="BorderThickness" Value="1" />
+      <Setter Property="FontWeight" Value="Normal" />
+    </Style>
+    <Style Selector="TextBox.query">
+      <Setter Property="Background" Value="#0E162A" />
+      <Setter Property="Foreground" Value="#F5F8FF" />
+      <Setter Property="BorderBrush" Value="#33466F" />
+      <Setter Property="BorderThickness" Value="1" />
+      <Setter Property="CornerRadius" Value="10" />
+      <Setter Property="Padding" Value="14" />
+    </Style>
+  </Window.Styles>
+
+  <Grid ColumnDefinitions="280,*">
+    <Border
+        Grid.Column="0"
+        Padding="24"
+        Background="#0E162A"
+        BorderBrush="#1D2A45"
+        BorderThickness="0,0,1,0">
+      <Grid RowDefinitions="Auto,*,Auto">
+        <StackPanel Spacing="10">
+          <TextBlock
+              FontSize="24"
+              FontWeight="Bold"
+              Foreground="#F5F8FF"
+              Text="AzHST" />
+          <TextBlock
+              Foreground="#8FA4CB"
+              Text="Azure - How stuff works"
+              TextWrapping="Wrap" />
+        </StackPanel>
+
+        <StackPanel Grid.Row="1" Margin="0,34,0,0" Spacing="12">
+          <TextBlock
+              FontSize="12"
+              FontWeight="SemiBold"
+              Foreground="#7186AD"
+              Text="GITHUB COPILOT" />
+          <Border
+              Padding="12"
+              Background="#121D34"
+              CornerRadius="8">
+            <StackPanel Spacing="4">
+              <TextBlock
+                  FontWeight="SemiBold"
+                  Foreground="#DCE7FF"
+                  Text="{Binding AuthenticationMessage}"
+                  TextWrapping="Wrap" />
+              <TextBlock
+                  FontSize="12"
+                  Foreground="#7F94BB"
+                  Text="Authentication is provided by GitHub CLI."
+                  TextWrapping="Wrap" />
+            </StackPanel>
+          </Border>
+          <Button
+              AutomationProperties.Name="{Binding GitHubSignInButtonText}"
+              Classes="primary"
+              Command="{Binding GitHubSignInCommand}">
+            <StackPanel
+                HorizontalAlignment="Center"
+                Orientation="Horizontal"
+                Spacing="8">
+              <PathIcon
+                  Width="16"
+                  Height="16"
+                  Data="{StaticResource AccountIcon}" />
+              <TextBlock
+                  VerticalAlignment="Center"
+                  Text="{Binding GitHubSignInButtonText}" />
+            </StackPanel>
+          </Button>
+
+          <Border Height="1" Margin="0,14" Background="#253454" />
+
+          <TextBlock
+              FontSize="12"
+              FontWeight="SemiBold"
+              Foreground="#7186AD"
+              Text="CONFIGURATION" />
+          <Border
+              Padding="12"
+              Background="#121D34"
+              BorderBrush="#253454"
+              BorderThickness="1"
+              CornerRadius="8">
+            <StackPanel Spacing="9">
+              <Grid ColumnDefinitions="Auto,*">
+                <TextBlock
+                      FontSize="11"
+                      Foreground="#7186AD"
+                      Text="AI model" />
+                  <TextBlock
+                      FontSize="11"
+                      Grid.Column="1"
+                      HorizontalAlignment="Right"
+                      FontWeight="SemiBold"
+                      Foreground="#DCE7FF"
+                      Text="{Binding CopilotModelName}"
+                      TextTrimming="CharacterEllipsis"
+                      ToolTip.Tip="{Binding Settings.Model}" />
+                </Grid>
+                <Grid ColumnDefinitions="Auto,*">
+                  <TextBlock
+                    FontSize="11"
+                    Foreground="#7186AD"
+                    Text="HTML Theme" />
+                <TextBlock
+                    FontSize="11"
+                    Grid.Column="1"
+                    HorizontalAlignment="Right"
+                    FontWeight="SemiBold"
+                    Foreground="#DCE7FF"
+                    Text="{Binding HtmlThemeName}" />
+              </Grid>
+              <Grid ColumnDefinitions="Auto,*">
+                <TextBlock
+                    FontSize="11"
+                    Foreground="#7186AD"
+                    Text="PowerPoint" />
+                <TextBlock
+                    FontSize="11"
+                    Grid.Column="1"
+                    HorizontalAlignment="Right"
+                    FontWeight="SemiBold"
+                    Foreground="#DCE7FF"
+                    Text="{Binding PresentationThemeName}" />
+              </Grid>
+              <Grid ColumnDefinitions="Auto,*">
+                <TextBlock
+                    FontSize="11"
+                    Foreground="#7186AD"
+                    Text="Open results" />
+                <TextBlock
+                    FontSize="11"
+                    Grid.Column="1"
+                    HorizontalAlignment="Right"
+                    FontWeight="SemiBold"
+                    Foreground="#DCE7FF"
+                    Text="{Binding ResultOpeningMode}" />
+              </Grid>
+            </StackPanel>
+          </Border>
+          <Button
+              AutomationProperties.Name="Settings"
+              Classes="secondary"
+              Command="{Binding OpenSettingsCommand}">
+            <StackPanel
+                HorizontalAlignment="Center"
+                Orientation="Horizontal"
+                Spacing="8">
+              <PathIcon
+                  Width="16"
+                  Height="16"
+                  Data="{StaticResource SettingsIcon}" />
+              <TextBlock
+                  VerticalAlignment="Center"
+                  Text="Settings" />
+            </StackPanel>
+          </Button>
+        </StackPanel>
+
+        <StackPanel Grid.Row="2" Spacing="8">
+          <TextBlock
+              FontSize="12"
+              Foreground="#7186AD"
+              Text="Generated pages are stored locally and restricted by a Content Security Policy."
+              TextWrapping="Wrap" />
+          <TextBlock
+              FontSize="11"
+              Foreground="#53698F"
+              Text="{Binding ApplicationIdentityText}" />
+        </StackPanel>
+      </Grid>
+    </Border>
+
+    <Grid Grid.Column="1" Margin="30,24,30,26" RowDefinitions="Auto,*,Auto">
+      <Grid RowDefinitions="Auto,Auto">
+        <Grid ColumnDefinitions="*,Auto">
+          <StackPanel Spacing="5">
+            <TextBlock
+                FontSize="13"
+                FontWeight="SemiBold"
+                Foreground="#60A5FA"
+                Text="AZURE KNOWLEDGE VISUALIZER" />
+            <TextBlock
+                FontSize="28"
+                FontWeight="Bold"
+                Foreground="#F8FAFF"
+                Text="Understand cloud architecture at a glance"
+                TextWrapping="Wrap" />
+          </StackPanel>
+          <StackPanel
+              Grid.Column="1"
+              Orientation="Horizontal"
+              Spacing="10">
+            <Button
+                AutomationProperties.AutomationId="HomeButton"
+                AutomationProperties.Name="Home"
+                Classes="secondary"
+                Command="{Binding GoHomeCommand}"
+                IsVisible="{Binding HasPreview}">
+              <StackPanel
+                  HorizontalAlignment="Center"
+                  Orientation="Horizontal"
+                  Spacing="8">
+                <PathIcon
+                    Width="16"
+                    Height="16"
+                    Data="{StaticResource HomeIcon}" />
+                <TextBlock
+                    VerticalAlignment="Center"
+                    Text="Home" />
+              </StackPanel>
+            </Button>
+            <Button
+                AutomationProperties.AutomationId="BuildPowerPointButton"
+                AutomationProperties.Name="Build PowerPoint"
+                Classes="primary"
+                Command="{Binding BuildPowerPointCommand}"
+                IsVisible="{Binding HasPreview}">
+              <StackPanel
+                  HorizontalAlignment="Center"
+                  Orientation="Horizontal"
+                  Spacing="8">
+                <PathIcon
+                    Width="16"
+                    Height="16"
+                    Data="{StaticResource BuildPresentationIcon}" />
+                <TextBlock
+                    VerticalAlignment="Center"
+                    Text="Build PowerPoint" />
+              </StackPanel>
+            </Button>
+            <Button
+                AutomationProperties.AutomationId="OpenPowerPointButton"
+                AutomationProperties.Name="Open PowerPoint"
+                Classes="secondary"
+                Command="{Binding OpenPresentationCommand}"
+                IsVisible="{Binding HasPresentation}">
+              <StackPanel
+                  HorizontalAlignment="Center"
+                  Orientation="Horizontal"
+                  Spacing="8">
+                <PathIcon
+                    Width="16"
+                    Height="16"
+                    Data="{StaticResource OpenFileIcon}" />
+                <TextBlock
+                    VerticalAlignment="Center"
+                    Text="Open PowerPoint" />
+              </StackPanel>
+            </Button>
+            <Button
+                AutomationProperties.Name="Open visualization in browser"
+                Classes="secondary"
+                Command="{Binding OpenExternalCommand}"
+                IsVisible="{Binding HasPreview}">
+              <StackPanel
+                  HorizontalAlignment="Center"
+                  Orientation="Horizontal"
+                  Spacing="8">
+                <PathIcon
+                    Width="16"
+                    Height="16"
+                    Data="{StaticResource BrowserIcon}" />
+                <TextBlock
+                    VerticalAlignment="Center"
+                    Text="Open in browser" />
+              </StackPanel>
+            </Button>
+            <Button
+                Width="40"
+                AutomationProperties.AutomationId="HelpButton"
+                AutomationProperties.Name="Help and About"
+                Classes="secondary"
+                Command="{Binding OpenAboutCommand}"
+                Padding="9"
+                ToolTip.Tip="Help and About">
+              <PathIcon
+                    Width="18"
+                    Height="18"
+                    Data="{StaticResource HelpIcon}" />
+            </Button>
+          </StackPanel>
+        </Grid>
+
+        <Border
+            Grid.Row="1"
+            Margin="0,14,0,0"
+            Padding="10,8"
+            Background="#10182C"
+            BorderBrush="#2A3A5F"
+            BorderThickness="1"
+            CornerRadius="10"
+            IsVisible="{Binding HasPresentation}">
+          <Grid ColumnDefinitions="Auto,*,Auto,Auto">
+            <TextBlock
+                VerticalAlignment="Center"
+                FontWeight="SemiBold"
+                Foreground="#AFC0DF"
+                Text="PowerPoint file" />
+            <TextBox
+                AutomationProperties.AutomationId="PowerPointFilePath"
+                Grid.Column="1"
+                Margin="12,0"
+                VerticalContentAlignment="Center"
+                Background="#0E162A"
+                BorderBrush="#33466F"
+                Foreground="#DCE7FF"
+                IsReadOnly="True"
+                Text="{Binding PresentationFilePath}" />
+            <Button
+                AutomationProperties.AutomationId="CopyPowerPointPathButton"
+                AutomationProperties.Name="Copy PowerPoint path"
+                Grid.Column="2"
+                Margin="0,0,8,0"
+                Classes="secondary"
+                Command="{Binding CopyPresentationPathCommand}">
+              <StackPanel
+                  HorizontalAlignment="Center"
+                  Orientation="Horizontal"
+                  Spacing="8">
+                <PathIcon
+                    Width="16"
+                    Height="16"
+                    Data="{StaticResource CopyIcon}" />
+                <TextBlock
+                    VerticalAlignment="Center"
+                    Text="Copy path" />
+              </StackPanel>
+            </Button>
+            <Button
+                AutomationProperties.AutomationId="OpenPowerPointFolderButton"
+                AutomationProperties.Name="Open PowerPoint folder"
+                Grid.Column="3"
+                Classes="secondary"
+                Command="{Binding OpenPresentationFolderCommand}">
+              <StackPanel
+                  HorizontalAlignment="Center"
+                  Orientation="Horizontal"
+                  Spacing="8">
+                <PathIcon
+                    Width="16"
+                    Height="16"
+                    Data="{StaticResource FolderIcon}" />
+                <TextBlock
+                    VerticalAlignment="Center"
+                    Text="Open folder" />
+              </StackPanel>
+            </Button>
+          </Grid>
+        </Border>
+      </Grid>
+
+      <Grid Grid.Row="1" Margin="0,24,0,22">
+        <Border
+            Padding="32"
+            Background="#10182C"
+            BorderBrush="#253454"
+            BorderThickness="1"
+            CornerRadius="16"
+            IsVisible="{Binding ShowWelcome}">
+          <ScrollViewer>
+            <StackPanel
+                MaxWidth="860"
+                HorizontalAlignment="Center"
+                VerticalAlignment="Center"
+                Spacing="18">
+              <TextBlock
+                  HorizontalAlignment="Center"
+                  FontSize="30"
+                  FontWeight="Bold"
+                  Foreground="#F5F8FF"
+                  Text="Ask. Generate. Explore." />
+              <TextBlock
+                  HorizontalAlignment="Center"
+                  Foreground="#9DB0D1"
+                  Text="Ask about Azure services, compare options, or describe an architecture requirement. AzHST turns the answer into an interactive visual page."
+                  TextAlignment="Center"
+                  TextWrapping="Wrap" />
+              <TextBlock
+                  Margin="0,14,0,0"
+                  FontSize="12"
+                  FontWeight="SemiBold"
+                  Foreground="#7186AD"
+                  Text="TRY AN EXAMPLE" />
+              <ItemsControl ItemsSource="{Binding SampleQueries}">
+                <ItemsControl.ItemsPanel>
+                  <ItemsPanelTemplate>
+                    <UniformGrid Columns="2" />
+                  </ItemsPanelTemplate>
+                </ItemsControl.ItemsPanel>
+                <ItemsControl.ItemTemplate>
+                  <DataTemplate x:DataType="vm:SampleQueryOptionViewModel">
+                    <Button
+                        MinHeight="92"
+                        Margin="5"
+                        Padding="14,12"
+                        VerticalContentAlignment="Stretch"
+                        Classes="example"
+                        Command="{Binding SelectCommand}">
+                      <Grid ColumnDefinitions="*,Auto">
+                        <StackPanel Spacing="6">
+                          <TextBlock
+                              FontSize="10"
+                              FontWeight="SemiBold"
+                              Foreground="#60A5FA"
+                              Text="{Binding CategoryName}" />
+                          <TextBlock
+                              Foreground="#CFDAF2"
+                              Text="{Binding Query}"
+                              TextWrapping="Wrap" />
+                        </StackPanel>
+                        <PathIcon
+                            Grid.Column="1"
+                            Width="16"
+                            Height="16"
+                            Margin="12,0,0,0"
+                            VerticalAlignment="Center"
+                            Data="{StaticResource UseSampleIcon}"
+                            Foreground="#60A5FA" />
+                      </Grid>
+                    </Button>
+                  </DataTemplate>
+                </ItemsControl.ItemTemplate>
+              </ItemsControl>
+            </StackPanel>
+          </ScrollViewer>
+        </Border>
+
+        <Border
+            Background="White"
+            BorderBrush="#33466F"
+            BorderThickness="1"
+            CornerRadius="12"
+            ClipToBounds="True"
+            IsVisible="{Binding HasEmbeddedPreview}">
+          <ContentControl Content="{Binding EmbeddedPreviewUri}">
+            <ContentControl.DataTemplates>
+              <DataTemplate DataType="sys:Uri" x:DataType="sys:Uri">
+                <NativeWebView
+                    NavigationStarted="WebView_NavigationStarted"
+                    NewWindowRequested="WebView_NewWindowRequested"
+                    Source="{Binding .}" />
+              </DataTemplate>
+            </ContentControl.DataTemplates>
+          </ContentControl>
+        </Border>
+
+        <Border
+            Padding="36"
+            Background="#10182C"
+            BorderBrush="#33466F"
+            BorderThickness="1"
+            CornerRadius="12"
+            IsVisible="{Binding ShowPreviewFallback}">
+          <StackPanel
+              MaxWidth="620"
+              HorizontalAlignment="Center"
+              VerticalAlignment="Center"
+              Spacing="16">
+            <TextBlock
+                HorizontalAlignment="Center"
+                FontSize="24"
+                FontWeight="Bold"
+                Foreground="#F5F8FF"
+                Text="Embedded preview unavailable" />
+            <TextBlock
+                Foreground="#9DB0D1"
+                Text="{Binding WebViewAvailabilityMessage}"
+                TextAlignment="Center"
+                TextWrapping="Wrap" />
+            <Button
+                AutomationProperties.Name="Open visualization in browser"
+                HorizontalAlignment="Center"
+                Classes="primary"
+                Command="{Binding OpenExternalCommand}">
+              <StackPanel
+                  HorizontalAlignment="Center"
+                  Orientation="Horizontal"
+                  Spacing="8">
+                <PathIcon
+                    Width="16"
+                    Height="16"
+                    Data="{StaticResource BrowserIcon}" />
+                <TextBlock
+                    VerticalAlignment="Center"
+                    Text="Open in browser" />
+              </StackPanel>
+            </Button>
+          </StackPanel>
+        </Border>
+      </Grid>
+
+      <Border
+          Grid.Row="2"
+          Padding="18"
+          Background="#10182C"
+          BorderBrush="#2A3A5F"
+          BorderThickness="1"
+          CornerRadius="14">
+        <Grid RowDefinitions="Auto,Auto,Auto,Auto">
+          <TextBox
+              AutomationProperties.AutomationId="QueryInput"
+              Classes="query"
+              AcceptsReturn="True"
+              MaxHeight="150"
+              MinHeight="84"
+              PlaceholderText="Ask about an Azure service, comparison, integration, or target architecture..."
+              Text="{Binding Query, Mode=TwoWay}"
+              TextWrapping="Wrap" />
+          <Grid Grid.Row="1" Margin="0,12,0,0" ColumnDefinitions="*,Auto,Auto">
+            <TextBlock
+                AutomationProperties.AutomationId="StatusMessage"
+                VerticalAlignment="Center"
+                Foreground="#8FA4CB"
+                Text="{Binding StatusMessage}"
+                TextWrapping="Wrap" />
+            <Button
+                Grid.Column="1"
+                Margin="10,0"
+                Classes="secondary"
+                Command="{Binding GenerateCancelCommand}"
+                Content="Cancel"
+                IsVisible="{Binding IsGenerating}" />
+            <Button
+                Grid.Column="1"
+                Margin="10,0"
+                Classes="secondary"
+                Command="{Binding BuildPowerPointCancelCommand}"
+                Content="Cancel"
+                IsVisible="{Binding IsBuildingPresentation}" />
+            <Button
+                AutomationProperties.AutomationId="GenerateButton"
+                AutomationProperties.Name="Generate visualization"
+                Grid.Column="2"
+                Classes="primary"
+                Command="{Binding GenerateCommand}">
+              <StackPanel
+                  HorizontalAlignment="Center"
+                  Orientation="Horizontal"
+                  Spacing="8">
+                <PathIcon
+                    Width="16"
+                    Height="16"
+                    Data="{StaticResource GenerateIcon}" />
+                <TextBlock
+                    VerticalAlignment="Center"
+                    Text="Generate visualization" />
+              </StackPanel>
+            </Button>
+          </Grid>
+          <Border
+              Grid.Row="2"
+              Margin="0,12,0,0"
+              Padding="12"
+              Background="#2A1620"
+              BorderBrush="#7A3445"
+              BorderThickness="1"
+              CornerRadius="8"
+              IsVisible="{Binding HasOperationError}">
+            <ScrollViewer
+                MaxHeight="160"
+                VerticalScrollBarVisibility="Auto">
+              <SelectableTextBlock
+                  AutomationProperties.AutomationId="OperationErrorMessage"
+                  Foreground="#FFB4AB"
+                  Text="{Binding OperationErrorMessage}"
+                  TextWrapping="Wrap" />
+            </ScrollViewer>
+          </Border>
+          <ProgressBar
+              Grid.Row="3"
+              Height="3"
+              Margin="0,12,0,0"
+              IsIndeterminate="True"
+              IsVisible="{Binding IsBusy}" />
+        </Grid>
+      </Border>
+    </Grid>
+  </Grid>
+</Window>
