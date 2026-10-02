@@ -1,0 +1,26 @@
+# Please see the documentation for all configuration options:
+# https://docs.github.com/en/code-security/dependabot/dependabot-version-updates/configuration-options-for-the-dependabot.yml-file
+
+version: 2
+
+updates:
+  - package-ecosystem: "github-actions"
+    directories:
+      - "/"
+    schedule:
+      interval: "weekly"
+      day: "sunday"
+
+  - package-ecosystem: "nuget"
+    directories:
+      - "/src/AzHS.Application"
+      - "/src/AzHS.Desktop"
+      - "/src/AzHS.Infrastructure"
+      - "/tests/AzHS.Application.Tests"
+      - "/tests/AzHS.Infrastructure.Tests"
+    schedule:
+      interval: "weekly"
+      day: "saturday"
+    ignore:
+      - dependency-name: "**"
+        update-types: ["version-update:semver-major"] # do not update to major version as it may contain breaking changes

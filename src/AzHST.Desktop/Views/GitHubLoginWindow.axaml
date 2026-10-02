@@ -1,0 +1,96 @@
+<Window
+    x:Class="AzHST.Desktop.Views.GitHubLoginWindow"
+    xmlns="https://github.com/avaloniaui"
+    xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+    Title="Sign in to GitHub"
+    Width="650"
+    Height="470"
+    CanResize="False"
+    Icon="/Assets/azhst-icon.ico"
+    Background="#0E162A"
+    WindowStartupLocation="CenterOwner">
+
+  <Grid Margin="30" RowDefinitions="Auto,*,Auto">
+    <StackPanel Spacing="8">
+      <TextBlock
+          FontSize="24"
+          FontWeight="Bold"
+          Foreground="#F5F8FF"
+          Text="Sign in from your terminal" />
+      <TextBlock
+          Foreground="#9DB0D1"
+          Text="AzHST will not start the interactive GitHub CLI login because its output must remain visible to you."
+          TextWrapping="Wrap" />
+    </StackPanel>
+
+    <StackPanel Grid.Row="1" Margin="0,26,0,0" Spacing="14">
+      <TextBlock
+          FontWeight="SemiBold"
+          Foreground="#DCE7FF"
+          Text="1. Open PowerShell, Terminal, or your preferred command line." />
+      <TextBlock
+          FontWeight="SemiBold"
+          Foreground="#DCE7FF"
+          Text="2. Run this command:" />
+      <TextBox
+          Padding="14"
+          Background="#080D18"
+          BorderBrush="#33466F"
+          BorderThickness="1"
+          FontFamily="Consolas, monospace"
+          Foreground="#93C5FD"
+          IsReadOnly="True"
+          Text="gh auth login --hostname github.com --git-protocol https --web"
+          TextWrapping="NoWrap" />
+      <TextBlock
+          FontWeight="SemiBold"
+          Foreground="#DCE7FF"
+          Text="3. Follow the prompts and complete authentication in your browser." />
+      <TextBlock
+          FontWeight="SemiBold"
+          Foreground="#DCE7FF"
+          Text="4. Return here and confirm after the command finishes successfully." />
+      <Border
+          Margin="0,8,0,0"
+          Padding="12"
+          Background="#121D34"
+          CornerRadius="8">
+        <TextBlock
+            FontSize="12"
+            Foreground="#8FA4CB"
+            Text="AzHST will then run a read-only GitHub account check. It does not read or store your authentication token."
+            TextWrapping="Wrap" />
+      </Border>
+    </StackPanel>
+
+    <StackPanel
+        Grid.Row="2"
+        HorizontalAlignment="Right"
+        Orientation="Horizontal"
+        Spacing="10">
+      <Button
+          MinWidth="90"
+          Click="Cancel_Click"
+          Content="Cancel" />
+      <Button
+          MinWidth="150"
+          AutomationProperties.Name="I've signed in"
+          Background="#2563EB"
+          Click="Confirm_Click"
+          Foreground="White">
+        <StackPanel
+            HorizontalAlignment="Center"
+            Orientation="Horizontal"
+            Spacing="8">
+          <PathIcon
+              Width="16"
+              Height="16"
+              Data="{StaticResource ConfirmIcon}" />
+          <TextBlock
+              VerticalAlignment="Center"
+              Text="I've signed in" />
+        </StackPanel>
+      </Button>
+    </StackPanel>
+  </Grid>
+</Window>

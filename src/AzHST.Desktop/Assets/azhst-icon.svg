@@ -1,0 +1,25 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512" role="img" aria-labelledby="title description">
+  <title id="title">AzHST application icon</title>
+  <desc id="description">A connected-node letter A representing visual Azure architecture explanations.</desc>
+  <defs>
+    <linearGradient id="background" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0" stop-color="#0D1B2A" />
+      <stop offset="1" stop-color="#071426" />
+    </linearGradient>
+  </defs>
+  <rect x="16" y="16" width="480" height="480" rx="112" fill="url(#background)" />
+  <rect x="22" y="22" width="468" height="468" rx="106" fill="none" stroke="#29415F" stroke-width="12" />
+  <path d="M140 376 256 128" fill="none" stroke="#4CC2FF" stroke-width="60" stroke-linecap="round" stroke-linejoin="round" />
+  <path d="m256 128 116 248" fill="none" stroke="#0078D4" stroke-width="60" stroke-linecap="round" stroke-linejoin="round" />
+  <path d="M194 286h124" fill="none" stroke="#A78BFA" stroke-width="44" stroke-linecap="round" />
+  <g fill="#F8FAFC">
+    <circle cx="256" cy="128" r="29" />
+    <circle cx="140" cy="376" r="29" />
+    <circle cx="372" cy="376" r="29" />
+  </g>
+  <g fill="#173554">
+    <circle cx="256" cy="128" r="15" />
+    <circle cx="140" cy="376" r="15" />
+    <circle cx="372" cy="376" r="15" />
+  </g>
+</svg>
