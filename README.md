@@ -58,6 +58,12 @@ dotnet test AzHST.slnx
 dotnet run --project src\AzHST.Desktop\AzHST.Desktop.csproj
 ```
 
+GitHub Actions validates Release builds and tests on Windows, Linux, and macOS,
+and verifies formatting on Linux. Each run also publishes versioned,
+self-contained archives for `win-x64`, `linux-x64`, `osx-x64`, and
+`osx-arm64`, together with SHA-256 checksum files. These archives are portable
+application bundles, not native installers.
+
 On first use, select **GitHub sign-in instructions**. AzHST shows the command to run in your own terminal:
 
 ```text

@@ -2,6 +2,9 @@
 
 ## Unreleased
 
+- Completed the .NET 10 CI workflow with cross-platform Release builds, tests,
+  formatting verification, semantic-release analysis, and versioned
+  self-contained archives plus SHA-256 checksums.
 - Added account-aware GitHub Copilot model selection for visualization and
   PowerPoint generation, with Automatic retained as the default.
 - Improved PowerPoint fidelity by preserving parent sections, nested headings,
