@@ -310,16 +310,16 @@
             </Button>
             <Button
                 Width="40"
-                AutomationProperties.AutomationId="AboutButton"
-                AutomationProperties.Name="About AzHST"
+                AutomationProperties.AutomationId="HelpButton"
+                AutomationProperties.Name="Help and About"
                 Classes="secondary"
                 Command="{Binding OpenAboutCommand}"
                 Padding="9"
-                ToolTip.Tip="About AzHST">
+                ToolTip.Tip="Help and About">
               <PathIcon
                     Width="18"
                     Height="18"
-                    Data="{StaticResource AboutIcon}" />
+                    Data="{StaticResource HelpIcon}" />
             </Button>
           </StackPanel>
         </Grid>

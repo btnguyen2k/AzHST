@@ -27,8 +27,8 @@
   <ItemGroup>
     <AvaloniaResource Include="Assets\**" />
     <EmbeddedResource
-        Include="..\..\README.md"
-        LogicalName="AzHST.Readme.md" />
+        Include="..\..\ABOUT.md"
+        LogicalName="AzHST.About.md" />
     <EmbeddedResource
         Include="..\..\RELEASE-NOTES.md"
         LogicalName="AzHST.ReleaseNotes.md" />

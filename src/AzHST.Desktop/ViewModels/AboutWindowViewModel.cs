@@ -16,13 +16,13 @@ public sealed partial class AboutWindowViewModel : ObservableObject
 
     public AboutWindowViewModel(
         ApplicationIdentity applicationIdentity,
-        EmbeddedMarkdownDocument readme,
+        EmbeddedMarkdownDocument about,
         EmbeddedMarkdownDocument releaseNotes,
         WebViewAvailability webViewAvailability,
         IExternalBrowser browser)
     {
         ArgumentNullException.ThrowIfNull(applicationIdentity);
-        ArgumentNullException.ThrowIfNull(readme);
+        ArgumentNullException.ThrowIfNull(about);
         ArgumentNullException.ThrowIfNull(releaseNotes);
         ArgumentNullException.ThrowIfNull(webViewAvailability);
         ArgumentNullException.ThrowIfNull(browser);
@@ -34,7 +34,7 @@ public sealed partial class AboutWindowViewModel : ObservableObject
         [
             new AboutTabViewModel(
                 "About",
-                readme,
+                about,
                 webViewAvailability.IsAvailable),
             new AboutTabViewModel(
                 "Changelog",

@@ -10,7 +10,7 @@ namespace AzHST.Desktop.Services;
 
 public sealed class AboutDialogService : IAboutDialogService
 {
-    private const string ReadmeResourceName = "AzHST.Readme.md";
+    private const string AboutResourceName = "AzHST.About.md";
     private const string ReleaseNotesResourceName = "AzHST.ReleaseNotes.md";
 
     private readonly Func<Window?> _ownerProvider;
@@ -41,9 +41,9 @@ public sealed class AboutDialogService : IAboutDialogService
         var owner = _ownerProvider()
             ?? throw new InvalidOperationException(
                 "The main window is not available.");
-        var readme = _documentLoader.Load(
+        var about = _documentLoader.Load(
             _resourceAssembly,
-            ReadmeResourceName,
+            AboutResourceName,
             $"About {_applicationIdentity.Name}");
         var releaseNotes = _documentLoader.Load(
             _resourceAssembly,
@@ -53,7 +53,7 @@ public sealed class AboutDialogService : IAboutDialogService
         {
             DataContext = new AboutWindowViewModel(
                 _applicationIdentity,
-                readme,
+                about,
                 releaseNotes,
                 _webViewAvailability,
                 _browser),

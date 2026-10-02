@@ -272,7 +272,7 @@ The Copilot client uses `CopilotClientMode.Empty` and supplies `AvailableTools =
 
 ### Embedded application documents
 
-`README.md` and `RELEASE-NOTES.md` are compiled into the Desktop assembly under
+`ABOUT.md` and `RELEASE-NOTES.md` are compiled into the Desktop assembly under
 stable logical resource names. `EmbeddedMarkdownDocumentLoader` reads the
 resource streams at runtime and uses Markdig to build standalone HTML.
 Model-generated content is not involved.

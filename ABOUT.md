@@ -1,6 +1,4 @@
-[![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
-[![Actions Status](https://github.com/btnguyen2k/AzHST/workflows/CI/badge.svg)](https://github.com/btnguyen2k/AzHST/actions)
-[![Release](https://img.shields.io/github/release/btnguyen2k/AzHST.svg?style=flat-square)](RELEASE-NOTES.md)
+# AzHST
 
 **Azure - How stuff works (AzHST)** turns questions about Azure and Microsoft cloud services into clear,
 interactive visual explanations. It helps people understand services, compare
@@ -21,52 +19,6 @@ responses.
   Azure documentation used as sources.
 - **Local ownership:** Keep generated HTML pages and PowerPoint files on your
   computer and open them in AzHST or your preferred applications.
-
-## Quick installation
-
-### Windows: download a ready-to-run build
-
-1. Install [GitHub CLI](https://cli.github.com/).
-2. Ensure your GitHub account has access to GitHub Copilot.
-3. Open the repository's
-   [Releases](https://github.com/btnguyen2k/AzHST/releases) page.
-4. Download the latest `AzHST-<version>-win-x64.zip` archive.
-5. Extract the complete archive to a folder. Keep the executable and its
-   accompanying files together.
-6. Run `AzHST.Desktop.exe`.
-
-The Windows package is self-contained and does not require the .NET SDK.
-Microsoft Edge WebView2 is also required and is already included with Windows
-11 and most supported Windows 10 installations.
-
-### Build and run from source
-
-#### Prerequisites
-
-- [.NET 10 SDK](https://dotnet.microsoft.com/download/dotnet/10.0)
-- [Git](https://git-scm.com/)
-- [GitHub CLI](https://cli.github.com/)
-- A GitHub account with access to GitHub Copilot
-
-Windows, macOS, and Linux users can build and run AzHST directly from the
-repository. Windows uses Microsoft Edge WebView2, and macOS uses the built-in
-WKWebView runtime. On Debian or Ubuntu Linux, install the native WebView
-dependencies:
-
-```bash
-sudo apt install libgtk-3-0 libwebkit2gtk-4.1-0 libsoup-3.0-0
-```
-
-Clone, build, and launch AzHST:
-
-```text
-git clone https://github.com/btnguyen2k/AzHST.git
-cd AzHST
-
-dotnet restore AzHST.slnx
-dotnet build AzHST.slnx --configuration Release
-dotnet run --project src/AzHST.Desktop/AzHST.Desktop.csproj --configuration Release
-```
 
 ## Quick user guide
 
@@ -138,26 +90,6 @@ Report defects through
 
 Remove credentials, tokens, confidential queries, and sensitive generated
 content before posting.
-
-## Contributing
-
-Contributions are welcome:
-
-1. Open an issue before starting a significant change so the approach can be
-   discussed.
-2. Fork the repository and create a focused branch.
-3. Follow the existing architecture and coding conventions described in
-   [`docs/architecture.md`](docs/architecture.md) and [`.dev.md`](.dev.md).
-4. Build and validate the change:
-
-   ```bash
-   dotnet build AzHST.slnx --configuration Release
-   dotnet test AzHST.slnx --configuration Release
-   dotnet format AzHST.slnx --verify-no-changes
-   ```
-
-5. Submit a pull request that explains the problem, the solution, and any
-   user-visible behavior changes.
 
 ## License
 

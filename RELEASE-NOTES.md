@@ -22,5 +22,6 @@
 - Fixed intermittent no-response behavior from **Build PowerPoint** by removing
   the unnecessary authentication gate for manifest-backed builds and showing
   complete SDK/build failures in a persistent selectable error panel.
-- Added a tabbed About dialog that displays embedded application information
-  and these release notes.
+- Added a Help and About action with a concise embedded application guide,
+  synchronized public information, accessible documentation links, and these
+  release notes.
