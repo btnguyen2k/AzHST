@@ -2,6 +2,8 @@
 
 ## Unreleased
 
+- Fixed single-file application packages so the RID-specific GitHub Copilot
+  runtime remains available beside the executable for visualization generation.
 - Completed the .NET 10 CI workflow with cross-platform Release builds, tests,
   formatting verification, semantic-release analysis, and versioned
   self-contained archives plus SHA-256 checksums.

@@ -139,7 +139,7 @@ jobs:
             --runtime $env:RUNTIME_IDENTIFIER `
             --self-contained true `
             -p:PublishSingleFile=true `
-            -p:IncludeNativeLibrariesForSelfExtract=true `
+            -p:IncludeNativeLibrariesForSelfExtract=false `
             -p:EnableCompressionInSingleFile=true `
             --no-restore `
             --output $publishDirectory `
@@ -163,12 +163,26 @@ jobs:
           $resourceDirectory = Join-Path $publishDirectory "resources"
           $themeDirectory = Join-Path $resourceDirectory "themes"
           $iconDirectory = Join-Path $resourceDirectory "azure-icons"
+          $copilotRuntimeName = if ($env:RUNTIME_IDENTIFIER.StartsWith("win-", [StringComparison]::Ordinal)) {
+            "copilot-runtime.exe"
+          } else {
+            "copilot-runtime"
+          }
+          $copilotRuntimePath = [IO.Path]::Combine(
+            $publishDirectory,
+            "runtimes",
+            $env:RUNTIME_IDENTIFIER,
+            "native",
+            $copilotRuntimeName)
 
           if (-not (Test-Path -LiteralPath $buildAssemblyPath -PathType Leaf)) {
             throw "Build output assembly was not found at '$buildAssemblyPath'."
           }
           if (-not (Test-Path -LiteralPath $executablePath -PathType Leaf)) {
             throw "Published executable was not found at '$executablePath'."
+          }
+          if (-not (Test-Path -LiteralPath $copilotRuntimePath -PathType Leaf)) {
+            throw "Published package does not contain the Copilot runtime wrapper at '$copilotRuntimePath'."
           }
           if (-not (Get-ChildItem -LiteralPath $themeDirectory -Filter "*.json" -File -Recurse | Select-Object -First 1)) {
             throw "Published package does not contain theme resources."
