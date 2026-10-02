@@ -1,258 +1,165 @@
-# AzHST
+[![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
+[![Actions Status](https://github.com/btnguyen2k/AzHST/workflows/CI/badge.svg)](https://github.com/btnguyen2k/AzHST/actions)
+[![Release](https://img.shields.io/github/release/btnguyen2k/AzHST.svg?style=flat-square)](RELEASE-NOTES.md)
 
-**Azure - How stuff works**
+**Azure - How stuff works (AzHST)** turns questions about Azure and Microsoft cloud services into clear,
+interactive visual explanations. It helps people understand services, compare
+options, and communicate cloud designs without working through long AI
+responses.
 
-AzHST is a cross-platform Avalonia desktop application that turns questions about Azure and Microsoft services into visual, interactive HTML explanations. GitHub Copilot generates a self-contained page, which AzHST stores locally and displays in an embedded native WebView or opens in the default browser.
+## Highlights
 
-This repository contains the first functional vertical slice. Authentication, configuration, Copilot generation, HTML validation, local persistence, embedded preview, and external-browser launch are implemented. Conversation history, export, and richer follow-up workflows remain future work.
+- **Visual answers:** Explore service behavior, request flows, dependencies,
+  and architecture decisions through interactive visualizations.
+- **Architecture guidance:** Describe business and technical requirements and
+  receive a visual Azure architecture proposal with operational considerations.
+- **Service comparisons:** Compare Azure services, capabilities, trade-offs,
+  and suitable use cases side by side.
+- **Presentation-ready output:** Export the visualization as an editable
+  PowerPoint deck for reviews, workshops, and stakeholder discussions.
+- **Traceable recommendations:** Follow links to the official Microsoft and
+  Azure documentation used as sources.
+- **Local ownership:** Keep generated HTML pages and PowerPoint files on your
+  computer and open them in AzHST or your preferred applications.
 
-## Features
+## Quick installation
 
-- Avalonia 12 desktop UI targeting .NET 10
-- GitHub CLI sign-in flow and authentication status
-- GitHub Copilot SDK integration with no agent tools or host access enabled
-- Account-aware Copilot model selection with an Automatic default
-- Copilot-powered query validation for Azure relevance and visual suitability
-- Visual prompts for service explanations, comparisons, integrations, and architecture proposals
-- Self-contained HTML generation with inline CSS, JavaScript, SVG, and official Azure service icons
-- Visual-first 16:9 PowerPoint generation derived from the secured HTML structure, with native editable cards, diagrams, connectors, and Azure icons
-- Validated JSON theme catalog with separate HTML and PowerPoint selections
-- Timestamp-and-slug visualization IDs with one directory per generated page
-- Content Security Policy injection and external-resource rejection
-- Native WebView preview on Windows, macOS, and Linux
-- Automatic default-browser fallback and configurable browser launch
-- Runtime About and Changelog tabs backed by Markdown embedded in the application assembly
-- JSON settings stored in the user's local application data directory
-- SQLite-backed sample question catalog with six categories and ten questions per category
-- Four randomized home-page suggestions, refreshed whenever the home page opens
-- Weekly Copilot regeneration of sample questions with atomic database replacement
+### Windows: download a ready-to-run build
 
-## Prerequisites
+1. Install [GitHub CLI](https://cli.github.com/).
+2. Ensure your GitHub account has access to GitHub Copilot.
+3. Open the repository's
+   [Releases](https://github.com/btnguyen2k/AzHST/releases) page.
+4. Download the latest `AzHST-<version>-win-x64.zip` archive.
+5. Extract the complete archive to a folder. Keep the executable and its
+   accompanying files together.
+6. Run `AzHST.Desktop.exe`.
+
+The Windows package is self-contained and does not require the .NET SDK.
+Microsoft Edge WebView2 is also required and is already included with Windows
+11 and most supported Windows 10 installations.
+
+### Build and run from source
+
+#### Prerequisites
 
 - [.NET 10 SDK](https://dotnet.microsoft.com/download/dotnet/10.0)
+- [Git](https://git-scm.com/)
 - [GitHub CLI](https://cli.github.com/)
 - A GitHub account with access to GitHub Copilot
 
-The .NET Copilot SDK bundles its matching Copilot CLI runtime. A separate Copilot CLI installation is not required.
-
-Native WebView prerequisites:
-
-| Platform | Requirement |
-|---|---|
-| Windows | Microsoft Edge WebView2; included with Windows 11 and most supported Windows 10 installations |
-| macOS | WKWebView; included with macOS |
-| Linux | GTK 3, WebKitGTK 4.1, and libsoup 3; WPE WebKit is optional |
-
-For Debian or Ubuntu Linux:
+Windows, macOS, and Linux users can build and run AzHST directly from the
+repository. Windows uses Microsoft Edge WebView2, and macOS uses the built-in
+WKWebView runtime. On Debian or Ubuntu Linux, install the native WebView
+dependencies:
 
 ```bash
 sudo apt install libgtk-3-0 libwebkit2gtk-4.1-0 libsoup-3.0-0
 ```
 
-## Build and run
+Clone, build, and launch AzHST:
 
-```powershell
+```text
+git clone https://github.com/btnguyen2k/AzHST.git
+cd AzHST
+
 dotnet restore AzHST.slnx
-dotnet build AzHST.slnx
-dotnet test AzHST.slnx
-dotnet run --project src\AzHST.Desktop\AzHST.Desktop.csproj
+dotnet build AzHST.slnx --configuration Release
+dotnet run --project src/AzHST.Desktop/AzHST.Desktop.csproj --configuration Release
 ```
 
-GitHub Actions validates Release builds and tests on Windows, Linux, and macOS,
-and verifies formatting on Linux. Each run also publishes versioned,
-self-contained archives for `win-x64`, `linux-x64`, `osx-x64`, and
-`osx-arm64`, together with SHA-256 checksum files. These archives are portable
-application bundles, not native installers.
+## Quick user guide
 
-On first use, select **GitHub sign-in instructions**. AzHST shows the command to run in your own terminal:
+1. **Sign in to GitHub.** Select **GitHub sign-in instructions**, run the
+   displayed command in your terminal, complete the browser flow, and then
+   select **I've signed in**:
 
-```text
-gh auth login --hostname github.com --git-protocol https --web
-```
+   ```text
+   gh auth login --hostname github.com --git-protocol https --web
+   ```
 
-Finish the visible CLI and browser flow, return to AzHST, and select **I've signed in**. AzHST only performs a non-interactive account check after confirmation.
+2. **Ask a question.** Choose a suggested question or enter your own request,
+   such as:
+   - How does Azure Application Gateway work?
+   - Compare Azure Front Door and Azure Application Gateway.
+   - Propose a resilient Azure architecture for a multi-region web application.
 
-## Debug authentication overrides
+3. **Generate the visualization.** Select **Generate visualization** to create
+   an interactive explanation with diagrams, guidance, and source links.
 
-Debug builds recognize two presence-based environment variables for testing authentication UI:
+4. **Explore or share the result.** Review it inside AzHST or select
+   **Open in browser**.
 
-| Variable | Debug behavior |
-|---|---|
-| `TEST_NO_GH_SIGNIN` | Skips the startup GitHub account check and starts in the signed-out state. The manual sign-in dialog and its post-confirmation status check still work normally. |
-| `TEST_NO_GH_BIN` | Simulates GitHub CLI being unavailable for every account check without starting `gh`. |
+5. **Create a presentation.** Select **Build PowerPoint**, then
+   **Open PowerPoint** to review the editable deck.
 
-For example:
+6. **Adjust preferences.** Open **Settings** to choose the Copilot model,
+   visualization theme, PowerPoint theme, output directory, and browser
+   behavior.
 
-```powershell
-$env:TEST_NO_GH_SIGNIN = "1"
-dotnet run --project src\AzHST.Desktop\AzHST.Desktop.csproj --configuration Debug
-```
-
-Only presence matters; the variable's value is ignored. `TEST_NO_GH_BIN` takes precedence if both variables are present. Release builds ignore both variables.
-
-## Project structure
-
-```text
-src\
-  AzHST.Application\       Use cases, contracts, models, and HTML safety policy
-  AzHST.Infrastructure\    Copilot SDK, GitHub CLI, filesystem, settings, and browser adapters
-  AzHST.Desktop\           Avalonia views, view models, UI services, and composition root
-tests\
-  AzHST.Application.Tests\ Core orchestration and generated-document policy tests
-  AzHST.Infrastructure.Tests\ Filesystem, icon catalog, and PowerPoint package tests
-docs\
-  architecture.md          Design, data flow, trust boundaries, and roadmap
-resources\
-  azure-icons\             Official Azure architecture SVG icon catalog
-  themes\                  Validated HTML and PowerPoint theme definitions
-```
-
-Dependencies point inward: Desktop and Infrastructure depend on Application; Application has no UI, SDK, or operating-system dependencies.
-
-## Generation flow
-
-For each submitted question, AzHST:
-
-1. Uses the selected Copilot model and structured output to verify that the request is related to Azure or Microsoft cloud services and can produce a meaningful visual explanation.
-2. Shows the returned guidance without generating a page when the request is invalid.
-3. Creates an ID from the hexadecimal Unix timestamp and a sanitized Copilot-suggested slug.
-4. Selects a small query-relevant catalog of approved Azure icon keys.
-5. Resolves the selected HTML theme and asks the same selected model for a standalone page with clear text sections, a prominent visual stage, stateful controls, purposeful animation, reduced-motion support, optional official icon placeholders, and an embedded PowerPoint narrative.
-6. Replaces approved placeholders with the original SVG bytes encoded as `data:` images and injects the authoritative theme CSS.
-7. Secures and saves the page, then navigates the embedded WebView to it.
-8. On request, validates and reuses the embedded visual-first slide plan, resolves the selected presentation theme, and builds an editable `.pptx` locally with the Open XML SDK. Legacy pages without an embedded plan use the selected model to create one from a bounded structural outline.
-
-The default artifact layout is relative to the application's working directory:
-
-```text
-generated\
-  0199abcdef12-azure-app-gateway\
-    index.html
-    presentation.pptx
-```
-
-The generated root can be changed in Settings.
-
-After a visualization is ready, select **Build PowerPoint**. AzHST creates a
-title slide, 4-9 content slides, and a final **Resources / Sources** slide,
-then stores the deck beside `index.html`.
-The first content slide is visual, and at least two thirds of the content
-slides are editable diagrams, comparisons, or card grids. Feature grids,
-recommendations, trade-offs, and production caveats become separate native
-cards instead of dense text boxes. Parent section labels, nested headings,
-explanatory paragraphs, and visible callouts remain distinct instead of being
-flattened into a single summary. Tone-colored card outlines stay aligned to
-their rounded cards without separate top-accent strips. When the HTML presents
-interactive states or progressive steps, adjacent slides represent those
-states; PowerPoint animation is not generated.
-Only the title slide carries the generated-by/artifact footer. The final slide
-uses the validated source titles and URLs as a standalone, numbered
-bibliography; content slides have no footer.
-For newly generated pages, **Build PowerPoint** uses the embedded presentation
-plan and remains available even if the displayed GitHub authentication status
-changes afterward. Legacy pages without a manifest still require Copilot
-fallback planning. A failed build shows the last completed stage and the full
-exception chain in a selectable error panel instead of replacing it with a
-later progress message.
-PowerPoint decks use the selected presentation theme. The default is
-**Professional Light**, optimized for projection, printing, and document
-sharing.
-The generated file location is displayed in the application with actions to
-copy its path or open its containing folder. Select **Open PowerPoint** to
-launch the file in the operating system's default presentation application.
-Microsoft PowerPoint is not required to generate the file; PowerPoint,
-LibreOffice Impress, or another compatible viewer is required to open it.
-
-## About and release notes
-
-Select the information icon in the main window to open the application
-information dialog. The default **About** tab renders this README, while the
-**Changelog** tab renders `RELEASE-NOTES.md`.
-
-Both Markdown files are embedded in `AzHST.Desktop.dll` and read at runtime,
-so installed builds do not depend on repository files being present. AzHST
-converts them to self-contained, CSP-protected HTML for the embedded WebView.
-When no compatible WebView runtime is available, the dialog displays the
-embedded Markdown as selectable text instead.
-
-## Local application data
-
-Settings and Copilot runtime data use the operating system's local application data folder:
-
-```text
-AzHST\
-  settings.json
-  copilot\
-```
-
-Authentication tokens remain managed by GitHub CLI or the bundled Copilot runtime and are never written to `settings.json`.
-
-Settings loads the models currently available to the signed-in Copilot account.
-The selected model ID is stored locally and used for query assessment, HTML
-generation, and legacy PowerPoint planning. **Automatic** remains the default;
-availability can vary by Copilot plan and organization policy.
-
-The sample question catalog is stored separately relative to the application's
-working directory:
-
-```text
-data\
-  azhst.db
-```
-
-At startup, AzHST checks the SQLite integrity, application identifier, schema
-version, required tables, foreign keys, and generation timestamp. An invalid
-or incompatible database is reset and reseeded with ten questions for each of
-the six supported visualization categories. The home page chooses four random
-categories and one random question from each category.
-
-When the stored question set reaches seven days old and GitHub authentication
-is available, Copilot generates a complete replacement set. AzHST validates
-all 60 questions before replacing the existing rows in one transaction. A
-failed refresh leaves the previous suggestions available for a later retry.
-
-## Output themes
-
-Settings provides separate selectors for HTML visualizations and PowerPoint
-presentations. The defaults are **Azure Night** (`azure-night`) for HTML and
-**Professional Light** (`professional-light`) for PowerPoint.
-
-Theme definitions are loaded from `resources\themes`, strictly validated, and
-applied automatically during generation. They contain `schemaVersion` for the
-configuration contract but deliberately have no theme-version property. See
-[`.dev.md`](.dev.md) for the complete schema, validation rules, renderer
-mappings, and instructions for adding themes.
-
-## Security model
-
-Model output is untrusted. Before saving a page, AzHST requires a complete HTML document and an interactive experience baseline: inline JavaScript, semantic controls, purposeful motion, and a `prefers-reduced-motion` fallback. It also limits document size, rejects external `src` references, non-source external `href` references, and remote CSS URLs, removes `<base>` and model-provided CSP elements, and injects a restrictive Content Security Policy. Azure icon placeholders accept only catalog keys, descriptive alt text, and no model-supplied `src`; AzHST substitutes a validated base64 SVG data URI. The visible Sources section must exactly match the manifest's approved Microsoft HTTPS references. The desktop host blocks other top-level navigation and new-window requests while opening approved source links in the default browser.
-
-Copilot never generates PowerPoint binary or Open XML markup. New pages carry
-their validated structured presentation plan in a non-executable JSON
-manifest. Legacy pages use a bounded structural outline of the secured HTML;
-the outline preserves visible headings, text, lists, table rows, controls,
-image descriptions, and SVG labels while excluding scripts, styles, and
-embedded image bytes. AzHST validates the bounded slide, hierarchy, text, node,
-connection, semantic-tone, and icon fields, constructs the package with the
-[Microsoft Open XML SDK](https://learn.microsoft.com/office/open-xml/presentation/overview),
-embeds approved Azure SVGs, validates the completed package against the Office
-schema, and atomically writes `presentation.pptx`. The generated deck contains
-no macros, external links, or remote resources.
+Generated pages and presentations are stored locally in the configured output
+directory.
 
 ## Azure icon usage
 
-The bundled SVGs come from the
-[Microsoft Azure Architecture Center](https://learn.microsoft.com/azure/architecture/icons/).
-Microsoft permits these icons in architectural diagrams, training materials,
-and documentation. AzHST uses them only for those purposes inside generated
-technical explanations.
+AzHST includes official Azure architecture icons from the
+[Azure Architecture Center](https://learn.microsoft.com/azure/architecture/icons/).
+The icons are used only in generated architecture diagrams, technical
+explanations, training material, and documentation.
 
-Generated pages preserve the original SVG bytes, show the Microsoft product
-name near the icon, and instruct Copilot not to crop, flip, rotate, recolor,
-distort, or use an icon to represent AzHST or a non-Microsoft product. See
-[`resources\azure-icons\README.md`](resources/azure-icons/README.md) for the
+AzHST preserves the original icon artwork and follows Microsoft's published
+usage guidance: icons are not cropped, flipped, rotated, recolored, distorted,
+or used to represent AzHST or non-Microsoft products. See
+[`resources/azure-icons/README.md`](resources/azure-icons/README.md) for the
 source and usage summary.
 
-Generated technical guidance can still be incomplete or outdated. Validate architecture, pricing, quotas, regional availability, security controls, and service limits against current Microsoft documentation before production use.
+## Disclaimer
 
-See [docs\architecture.md](docs/architecture.md) for the full design.
+AzHST is an independent open-source project. It is not affiliated with,
+endorsed by, sponsored by, or officially connected to Microsoft, Microsoft
+Azure, GitHub, or GitHub Copilot. Product names, service names, logos, icons,
+and trademarks belong to their respective owners.
+
+AzHST uses AI to generate technical explanations and architecture guidance.
+Generated content may be incomplete, inaccurate, or outdated. Always validate
+architecture decisions, security controls, pricing, quotas, regional
+availability, and service limits against current official documentation before
+using the guidance in production.
+
+## Reporting bugs
+
+Report defects through
+[GitHub Issues](https://github.com/btnguyen2k/AzHST/issues/new). Include:
+
+- the AzHST version and operating system
+- clear steps to reproduce the problem
+- the expected and actual behavior
+- the complete visible error message
+- screenshots or relevant logs when available
+
+Remove credentials, tokens, confidential queries, and sensitive generated
+content before posting.
+
+## Contributing
+
+Contributions are welcome:
+
+1. Open an issue before starting a significant change so the approach can be
+   discussed.
+2. Fork the repository and create a focused branch.
+3. Follow the existing architecture and coding conventions described in
+   [`docs/architecture.md`](docs/architecture.md) and [`.dev.md`](.dev.md).
+4. Build and validate the change:
+
+   ```bash
+   dotnet build AzHST.slnx --configuration Release
+   dotnet test AzHST.slnx --configuration Release
+   dotnet format AzHST.slnx --verify-no-changes
+   ```
+
+5. Submit a pull request that explains the problem, the solution, and any
+   user-visible behavior changes.
+
+## License
+
+AzHST is available under the [MIT License](LICENSE.md).
