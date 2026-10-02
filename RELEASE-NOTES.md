@@ -2,6 +2,10 @@
 
 ## Unreleased
 
+- Allowed each PowerPoint content slide to reference the complete validated
+  source set and retained all ten supported references on the final bibliography.
+- Prevented PowerPoint builds from failing on overlong generated callouts by
+  constraining new plans and safely shortening existing manifest content.
 - Fixed single-file application packages so the RID-specific GitHub Copilot
   runtime remains available beside the executable for visualization generation.
 - Completed the .NET 10 CI workflow with cross-platform Release builds, tests,

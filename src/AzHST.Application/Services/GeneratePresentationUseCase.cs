@@ -21,12 +21,13 @@ public sealed partial class GeneratePresentationUseCase
     private const int MaximumSectionTitleLength = 100;
     private const int MaximumSlideSubtitleLength = 160;
     private const int MaximumSummaryLength = 420;
-    private const int MaximumCalloutLength = 280;
+    public const int MaximumCalloutLength = 280;
     private const int MaximumBulletLength = 180;
     private const int MaximumNodeLabelLength = 80;
     private const int MaximumNodeDetailLength = 220;
     private const int MaximumConnectionLabelLength = 60;
-    private const int MaximumSourcesPerSlide = 4;
+    private const int MaximumSourcesPerSlide =
+        PresentationSourcePolicy.MaximumSourceCount;
     private const int MaximumSourceLength =
         PresentationSourcePolicy.MaximumTitleLength;
 
@@ -276,7 +277,8 @@ public sealed partial class GeneratePresentationUseCase
         var callout = OptionalText(
             slide.Callout,
             $"slide {slideNumber} callout",
-            MaximumCalloutLength);
+            MaximumCalloutLength,
+            truncateOverflow: true);
         var bullets = ValidateTextList(
             slide.Bullets,
             $"slide {slideNumber} bullets",
@@ -517,16 +519,45 @@ public sealed partial class GeneratePresentationUseCase
     private static string OptionalText(
         string? value,
         string fieldName,
-        int maximumLength)
+        int maximumLength,
+        bool truncateOverflow = false)
     {
         var normalized = value?.Trim() ?? string.Empty;
         if (normalized.Length > maximumLength)
         {
+            if (truncateOverflow)
+            {
+                return TruncateWithEllipsis(normalized, maximumLength);
+            }
+
             throw new PresentationGenerationException(
                 $"The {fieldName} exceeds {maximumLength} characters.");
         }
 
         return normalized;
+    }
+
+    private static string TruncateWithEllipsis(
+        string value,
+        int maximumLength)
+    {
+        const char ellipsis = '…';
+
+        var contentLength = maximumLength - 1;
+        if (char.IsHighSurrogate(value[contentLength - 1])
+            && char.IsLowSurrogate(value[contentLength]))
+        {
+            contentLength--;
+        }
+
+        var content = value[..contentLength].TrimEnd();
+        var wordBoundary = content.LastIndexOfAny([' ', '\t', '\r', '\n']);
+        if (wordBoundary >= maximumLength / 2)
+        {
+            content = content[..wordBoundary].TrimEnd();
+        }
+
+        return $"{content}{ellipsis}";
     }
 
     [GeneratedRegex(

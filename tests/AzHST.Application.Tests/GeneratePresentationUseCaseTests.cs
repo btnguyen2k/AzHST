@@ -138,6 +138,31 @@ public sealed class GeneratePresentationUseCaseTests
     }
 
     [Fact]
+    public async Task ExecuteAsync_TruncatesCalloutAboveMaximumLength()
+    {
+        var plan = CreateValidPlan();
+        plan.Slides[0].Callout = new string(
+            'x',
+            GeneratePresentationUseCase.MaximumCalloutLength + 20);
+        var builder = new StubBuilder([]);
+        var useCase = new GeneratePresentationUseCase(
+            new StubPlanner(plan, []),
+            builder,
+            new StubAzureIconCatalog("networking/app-gateway"),
+            new StubOutputThemeCatalog());
+
+        await useCase.ExecuteAsync(
+            "Explain Azure Application Gateway",
+            CreateVisualization(),
+            new AppSettings());
+
+        Assert.Equal(
+            GeneratePresentationUseCase.MaximumCalloutLength,
+            builder.Plan!.Slides[0].Callout.Length);
+        Assert.EndsWith("…", builder.Plan.Slides[0].Callout);
+    }
+
+    [Fact]
     public async Task ExecuteAsync_RejectsNodeDetailAboveMaximumLength()
     {
         var plan = CreateValidPlan();
@@ -177,6 +202,43 @@ public sealed class GeneratePresentationUseCaseTests
                 new AppSettings()));
 
         Assert.Contains("approved Microsoft HTTPS URL", exception.Message);
+    }
+
+    [Fact]
+    public async Task ExecuteAsync_AcceptsAllSourcesOnOneSlide()
+    {
+        var plan = CreateValidPlan();
+        plan.Sources = Enumerable.Range(
+                1,
+                PresentationSourcePolicy.MaximumSourceCount)
+            .Select(index => new PresentationSourcePlan
+            {
+                Title = $"Microsoft reference {index}",
+                Url =
+                    $"https://learn.microsoft.com/azure/reference-{index}",
+            })
+            .ToList();
+        plan.Slides[0].Sources = plan.Sources
+            .Select(source => source.Title)
+            .ToList();
+        var builder = new StubBuilder([]);
+        var useCase = new GeneratePresentationUseCase(
+            new StubPlanner(plan, []),
+            builder,
+            new StubAzureIconCatalog("networking/app-gateway"),
+            new StubOutputThemeCatalog());
+
+        await useCase.ExecuteAsync(
+            "Explain Azure Application Gateway",
+            CreateVisualization(),
+            new AppSettings());
+
+        Assert.Equal(
+            PresentationSourcePolicy.MaximumSourceCount,
+            builder.Plan!.Slides[0].Sources.Count);
+        Assert.Equal(
+            PresentationSourcePolicy.MaximumSourceCount,
+            builder.Plan.Sources.Count);
     }
 
     [Fact]

@@ -1,5 +1,6 @@
 using System.Text;
 using AzHST.Application.Models;
+using AzHST.Application.Services;
 using DocumentFormat.OpenXml.Packaging;
 using A = DocumentFormat.OpenXml.Drawing;
 using P = DocumentFormat.OpenXml.Presentation;
@@ -101,6 +102,48 @@ public sealed class OpenXmlPresentationBuilderTests : IDisposable
         Assert.Contains("02", resourcesText);
         Assert.Contains("Application Gateway documentation", resourcesText);
         Assert.DoesNotContain("generated HTML", resourcesText);
+    }
+
+    [Fact]
+    public async Task BuildAsync_RendersAllTenSources()
+    {
+        var iconDirectory = Path.Combine(_testDirectory, "icons");
+        CreateIcon(iconDirectory);
+        var builder = new OpenXmlPresentationBuilder(
+            new FileAzureIconCatalog(iconDirectory));
+        var plan = CreatePlan();
+        plan.Sources = Enumerable.Range(
+                1,
+                PresentationSourcePolicy.MaximumSourceCount)
+            .Select(index => new PresentationSourcePlan
+            {
+                Title = $"Microsoft reference {index}",
+                Url =
+                    $"https://learn.microsoft.com/azure/reference-{index}",
+            })
+            .ToList();
+
+        var artifact = await builder.BuildAsync(
+            plan,
+            CreateVisualization(),
+            CreateTheme());
+
+        using var document = PresentationDocument.Open(
+            artifact.FilePath,
+            false);
+        var presentationPart = Assert.IsType<PresentationPart>(
+            document.PresentationPart);
+        var resourcesText = string.Join(
+            " ",
+            GetSlideText(GetSlidesInOrder(presentationPart)[^1])
+                .Select(item => item.Text));
+
+        Assert.Contains("10 REFERENCES", resourcesText);
+        foreach (var source in plan.Sources)
+        {
+            Assert.Contains(source.Title, resourcesText);
+            Assert.Contains(source.Url, resourcesText);
+        }
     }
 
     [Fact]
