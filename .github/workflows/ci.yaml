@@ -146,7 +146,14 @@ jobs:
             -p:ContinuousIntegrationBuild=true `
             "-p:Version=$env:BUILD_VERSION"
 
-          $assemblyPath = Join-Path $publishDirectory "AzHST.Desktop.dll"
+          $projectDirectory = Split-Path -Parent $project
+          $buildAssemblyPath = [IO.Path]::Combine(
+            $projectDirectory,
+            "bin",
+            "Release",
+            "net10.0",
+            $env:RUNTIME_IDENTIFIER,
+            "AzHST.Desktop.dll")
           $executableName = if ($env:RUNTIME_IDENTIFIER.StartsWith("win-", [StringComparison]::Ordinal)) {
             "AzHST.Desktop.exe"
           } else {
@@ -157,8 +164,8 @@ jobs:
           $themeDirectory = Join-Path $resourceDirectory "themes"
           $iconDirectory = Join-Path $resourceDirectory "azure-icons"
 
-          if (-not (Test-Path -LiteralPath $assemblyPath -PathType Leaf)) {
-            throw "Published assembly was not found at '$assemblyPath'."
+          if (-not (Test-Path -LiteralPath $buildAssemblyPath -PathType Leaf)) {
+            throw "Build output assembly was not found at '$buildAssemblyPath'."
           }
           if (-not (Test-Path -LiteralPath $executablePath -PathType Leaf)) {
             throw "Published executable was not found at '$executablePath'."
@@ -170,9 +177,9 @@ jobs:
             throw "Published package does not contain Azure icon resources."
           }
 
-          $productVersion = (Get-Item -LiteralPath $assemblyPath).VersionInfo.ProductVersion
+          $productVersion = (Get-Item -LiteralPath $buildAssemblyPath).VersionInfo.ProductVersion
           if ([string]::IsNullOrWhiteSpace($productVersion)) {
-            throw "Published assembly does not contain product version metadata."
+            throw "Build output assembly does not contain product version metadata."
           }
           if (-not $productVersion.StartsWith($env:BUILD_VERSION, [StringComparison]::Ordinal)) {
             throw "Published product version '$productVersion' does not start with '$env:BUILD_VERSION'."
