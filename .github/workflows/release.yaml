@@ -76,31 +76,34 @@ jobs:
         uses: actions/checkout@v7.0.1
         with:
           fetch-depth: 0
+          ref: ${{ env.BRANCH_TO_RELEASE }}
       - name: Update release notes and version info
+        env:
+          RELEASE_NOTES: ${{ needs.semantic-release-dry-run.outputs.RELEASE_NOTES }}
+          RESULT: ${{ needs.semantic-release-dry-run.outputs.RESULT }}
+          VERSION: ${{ needs.semantic-release-dry-run.outputs.VERSION }}
         run: |
-          RESULT='${{ needs.semantic-release-dry-run.outputs.RESULT }}'
-          VERSION='${{ needs.semantic-release-dry-run.outputs.VERSION }}'
-          RELEASE_NOTES='${{ needs.semantic-release-dry-run.outputs.RELEASE_NOTES }}'
-
           echo "🕘 Updating module meta..."
           echo "   - RESULT: ${RESULT}"
           echo "   - VERSION: ${VERSION}"
           echo "   - RELEASE_NOTES: ${RELEASE_NOTES}"
 
           if [ "${RESULT}" == "SUCCESS" ]; then
-            DATE=`date +%Y-%m-%d`
-            head -1 ${FILE_CHANGELOG} > .temp.md
-            echo -e "\n## ${DATE} - v${VERSION}\n\n${RELEASE_NOTES}" >> .temp.md
-            tail -n +2 ${FILE_CHANGELOG} >> .temp.md
-            mv -f .temp.md ${FILE_CHANGELOG}
+            DATE=$(date +%Y-%m-%d)
+            {
+              head -n 1 "${FILE_CHANGELOG}"
+              printf '\n## %s - v%s\n\n%s\n' "${DATE}" "${VERSION}" "${RELEASE_NOTES}"
+              tail -n +2 "${FILE_CHANGELOG}"
+            } > .temp.md
+            mv -f .temp.md "${FILE_CHANGELOG}"
             echo ========== content of ${FILE_CHANGELOG} ==========
-            cat ${FILE_CHANGELOG}
+            cat "${FILE_CHANGELOG}"
 
             echo ========== update .md files ==========
             sed -i -E "s/<<VERSION>>/v${VERSION}/" ./*.md
 
             echo ========== update VERSION info in AzHST.Desktop.csproj ==========
-            sed -i -E "s/\<Version\>0.0.0\</Version\>/\<Version\>${VERSION}\</Version\>/" src/AzHST.Desktop/AzHST.Desktop.csproj
+            sed -i -E "s|<Version>[^<]+</Version>|<Version>${VERSION}</Version>|" src/AzHST.Desktop/AzHST.Desktop.csproj
 
             echo ========== commit updates ==========
             git config --global user.email "<>"
@@ -115,11 +118,157 @@ jobs:
           else
             echo "❎ SKIPPED."
           fi
+      - name: Cleanup file .semrelease/this_release
+        env:
+          RESULT: ${{ needs.semantic-release-dry-run.outputs.RESULT }}
+          VERSION: ${{ needs.semantic-release-dry-run.outputs.VERSION }}
+        run: |
+          if [ "${RESULT}" = "SUCCESS" ] && [ -f .semrelease/this_release ]; then
+            echo "🕘 Cleaning up file .semrelease/this_release..."
+            echo "# This file has been cleaned up post-releasing version ${VERSION}." > .semrelease/this_release
+            echo "# Generate its content quickly using the following command:" >> .semrelease/this_release
+            echo "#   git log origin..HEAD | grep \"^\s\" > .semrelease/this_release" >> .semrelease/this_release
+            git config --global user.email "<>"
+            git config --global user.name "CI Build"
+            git commit -am "Cleanup file .semrelease/this_release post-releasing version ${VERSION}"
+            git push -f
+            echo "✅ Done."
+          else
+            echo "❎ SKIPPED."
+          fi
 
-  # TODO:
+  publish-release:
+    name: Package and publish release
+    runs-on: windows-latest
+    needs: [ update-meta-data ]
+    if: github.event.pull_request.merged == true && needs.update-meta-data.outputs.RESULT == 'SUCCESS'
+    permissions:
+      contents: write
+    env:
+      RELEASE_VERSION: ${{ needs.update-meta-data.outputs.VERSION }}
+      RELEASE_NOTES: ${{ needs.update-meta-data.outputs.RELEASE_NOTES }}
+      RUNTIME_IDENTIFIER: win-x64
+    steps:
+      - name: Checkout release tag
+        uses: actions/checkout@v7.0.1
+        with:
+          fetch-depth: 0
+          ref: ${{ env.TAG_PREFIX }}${{ needs.update-meta-data.outputs.VERSION }}
+      - name: Install .NET SDK
+        uses: actions/setup-dotnet@v6.0.0
+        with:
+          global-json-file: global.json
+      - name: Package Windows application and source code
+        id: package
+        shell: pwsh
+        run: |
+          $ErrorActionPreference = "Stop"
+          $PSNativeCommandUseErrorActionPreference = $true
 
-  # step: package application as standalone binary for Windows
+          $project = Join-Path (Join-Path "src" "AzHST.Desktop") "AzHST.Desktop.csproj"
+          $baseName = "AzHST-$env:RELEASE_VERSION-$env:RUNTIME_IDENTIFIER"
+          $publishDirectory = Join-Path $env:RUNNER_TEMP $baseName
+          $buildAssemblyPath = [IO.Path]::Combine(
+            "src",
+            "AzHST.Desktop",
+            "bin",
+            "Release",
+            "net10.0",
+            $env:RUNTIME_IDENTIFIER,
+            "AzHST.Desktop.dll")
 
-  # step: package the source code as a .zip artifact
+          dotnet restore $project `
+            --runtime $env:RUNTIME_IDENTIFIER `
+            --verbosity minimal
 
-  # step: create a release, using version info as tag, also attach the source code artifact and the application binary for Windows
+          dotnet publish $project `
+            --configuration Release `
+            --runtime $env:RUNTIME_IDENTIFIER `
+            --self-contained true `
+            -p:PublishSingleFile=true `
+            -p:IncludeNativeLibrariesForSelfExtract=false `
+            -p:EnableCompressionInSingleFile=true `
+            --no-restore `
+            --output $publishDirectory `
+            -p:ContinuousIntegrationBuild=true `
+            "-p:Version=$env:RELEASE_VERSION"
+
+          $executablePath = Join-Path $publishDirectory "AzHST.Desktop.exe"
+          $copilotRuntimePath = [IO.Path]::Combine(
+            $publishDirectory,
+            "runtimes",
+            $env:RUNTIME_IDENTIFIER,
+            "native",
+            "copilot-runtime.exe")
+          if (-not (Test-Path -LiteralPath $executablePath -PathType Leaf)) {
+            throw "Published executable was not found at '$executablePath'."
+          }
+          if (-not (Test-Path -LiteralPath $copilotRuntimePath -PathType Leaf)) {
+            throw "Published package does not contain the Copilot runtime wrapper at '$copilotRuntimePath'."
+          }
+
+          $productVersion = (Get-Item -LiteralPath $buildAssemblyPath).VersionInfo.ProductVersion
+          if ([string]::IsNullOrWhiteSpace($productVersion) -or
+              -not $productVersion.StartsWith($env:RELEASE_VERSION, [StringComparison]::Ordinal)) {
+            throw "Published product version '$productVersion' does not start with '$env:RELEASE_VERSION'."
+          }
+
+          $applicationArchive = Join-Path $env:RUNNER_TEMP "$baseName.zip"
+          Compress-Archive `
+            -LiteralPath $publishDirectory `
+            -DestinationPath $applicationArchive `
+            -CompressionLevel Optimal
+
+          $sourceArchive = Join-Path $env:RUNNER_TEMP "AzHST-$env:RELEASE_VERSION-source.zip"
+          git archive --format=zip --output=$sourceArchive HEAD
+
+          "application_archive=$applicationArchive" >> $env:GITHUB_OUTPUT
+          "source_archive=$sourceArchive" >> $env:GITHUB_OUTPUT
+      - name: Create GitHub release
+        shell: pwsh
+        env:
+          APPLICATION_ARCHIVE: ${{ steps.package.outputs.application_archive }}
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          SOURCE_ARCHIVE: ${{ steps.package.outputs.source_archive }}
+        run: |
+          $ErrorActionPreference = "Stop"
+          $PSNativeCommandUseErrorActionPreference = $true
+
+          $notesPath = Join-Path $env:RUNNER_TEMP "release-notes.md"
+          [IO.File]::WriteAllText(
+            $notesPath,
+            $env:RELEASE_NOTES,
+            [Text.UTF8Encoding]::new($false))
+
+          gh release create "$env:TAG_PREFIX$env:RELEASE_VERSION" `
+            $env:APPLICATION_ARCHIVE `
+            $env:SOURCE_ARCHIVE `
+            --repo $env:GITHUB_REPOSITORY `
+            --title "AzHST $env:TAG_PREFIX$env:RELEASE_VERSION" `
+            --notes-file $notesPath `
+            --verify-tag
+
+  merge-to-main:
+    name: Merge to main post-release
+    runs-on: ubuntu-latest
+    needs: [ update-meta-data ]
+    if: github.event.pull_request.merged == true && needs.update-meta-data.outputs.RESULT == 'SUCCESS'
+    permissions:
+      pull-requests: write # to be able to create PRs or comment on released PRs
+    steps:
+      - uses: actions/github-script@v9
+        env:
+          RESULT: ${{ needs.update-meta-data.outputs.RESULT }}
+          RELEASE_NOTES: ${{ needs.update-meta-data.outputs.RELEASE_NOTES }}
+        with:
+          script: |
+            const {data: pr} = await github.rest.pulls.create({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              title: "Merge to main after releasing new version ${{ needs.update-meta-data.outputs.VERSION }}",
+              body: process['env']['RELEASE_NOTES'],
+              head: process['env']['BRANCH_TO_RELEASE'],
+              base: 'main',
+              maintainer_can_modify: true,
+            });
+            console.log('✅ Created PR: ', pr);
