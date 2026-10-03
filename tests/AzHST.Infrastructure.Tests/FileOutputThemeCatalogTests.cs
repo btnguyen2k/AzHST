@@ -22,17 +22,31 @@ public sealed class FileOutputThemeCatalogTests : IDisposable
         Assert.Equal(
             OutputThemeSettings.DefaultHtmlThemeId,
             Assert.Single(catalog.HtmlThemes).Id);
-        Assert.Equal(
-            OutputThemeSettings.DefaultPresentationThemeId,
-            Assert.Single(catalog.PresentationThemes).Id);
+        Assert.Collection(
+            catalog.PresentationThemes,
+            theme =>
+            {
+                Assert.Equal("professional-light", theme.Id);
+                Assert.Equal("Professional Light", theme.DisplayName);
+            },
+            theme =>
+            {
+                Assert.Equal(
+                    OutputThemeSettings.DefaultPresentationThemeId,
+                    theme.Id);
+                Assert.Equal("Professional Night", theme.DisplayName);
+            });
         Assert.Equal(
             "Azure Night",
             catalog.GetHtmlTheme(
                 OutputThemeSettings.DefaultHtmlThemeId).DisplayName);
         Assert.Equal(
-            "Professional Light",
+            "Professional Night",
             catalog.GetPresentationTheme(
                 OutputThemeSettings.DefaultPresentationThemeId).DisplayName);
+        var nightTheme = catalog.GetPresentationTheme("professional-night");
+        Assert.Equal("Professional Night", nightTheme.DisplayName);
+        Assert.Equal("#081426", nightTheme.Palette.Canvas);
 
         Assert.False(ReadTheme(
             Path.Combine(themeDirectory, "html", "azure-night.json"))
@@ -42,6 +56,12 @@ public sealed class FileOutputThemeCatalogTests : IDisposable
                 themeDirectory,
                 "presentation",
                 "professional-light.json"))
+            .ContainsKey("version"));
+        Assert.False(ReadTheme(
+            Path.Combine(
+                themeDirectory,
+                "presentation",
+                "professional-night.json"))
             .ContainsKey("version"));
     }
 
@@ -140,6 +160,14 @@ public sealed class FileOutputThemeCatalogTests : IDisposable
             Path.Combine(
                 presentationDirectory,
                 "professional-light.json"));
+        File.Copy(
+            Path.Combine(
+                source,
+                "presentation",
+                "professional-night.json"),
+            Path.Combine(
+                presentationDirectory,
+                "professional-night.json"));
         return destination;
     }
 

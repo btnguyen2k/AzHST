@@ -340,7 +340,7 @@ Version one persists:
 | Output directory | `.\generated` under the working directory | Store `<id>\index.html` visualization artifacts |
 | Open externally | `false` | Also launch each result in the default browser |
 | HTML theme | `azure-night` | Apply the Azure Night visual contract and authoritative CSS variables |
-| PowerPoint theme | `professional-light` | Apply the selected presentation palette; Professional Light is the default and Professional Night is also bundled |
+| PowerPoint theme | `professional-night` | Apply the selected presentation palette; Professional Night is the default and Professional Light remains available |
 
 The Settings dialog asks `ICopilotModelCatalog` for the models available to the
 signed-in account and persists the selected ID. `auto` remains the backward-
