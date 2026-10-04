@@ -143,6 +143,11 @@ public sealed class FileProjectArtifactStoreTests : IDisposable
     [InlineData(@"..\escape")]
     [InlineData("nested/id")]
     [InlineData(@"nested\id")]
+    [InlineData(@"C:\escape")]
+    [InlineData("bad:name")]
+    [InlineData("bad?name")]
+    [InlineData("trailing.")]
+    [InlineData("trailing ")]
     public async Task SaveAsync_RejectsUnsafeProjectId(string projectId)
     {
         var store = CreateStore(Path.Combine(_testDirectory, "generated"));

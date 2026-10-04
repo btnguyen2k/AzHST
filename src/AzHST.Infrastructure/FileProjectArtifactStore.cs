@@ -178,13 +178,28 @@ public sealed class FileProjectArtifactStore : IProjectArtifactStore
     {
         if (string.IsNullOrWhiteSpace(value)
             || value is "." or ".."
-            || value.IndexOfAny(Path.GetInvalidFileNameChars()) >= 0
-            || value.Contains(Path.DirectorySeparatorChar)
-            || value.Contains(Path.AltDirectorySeparatorChar))
+            || ContainsPortableInvalidCharacter(value)
+            || value.EndsWith(' ')
+            || value.EndsWith('.'))
         {
             throw new ArgumentException(
                 "The value must be a safe single path segment.",
                 parameterName);
         }
+    }
+
+    private static bool ContainsPortableInvalidCharacter(string value)
+    {
+        foreach (var character in value)
+        {
+            if (char.IsControl(character)
+                || character is '"' or '*' or '/' or ':' or '<'
+                    or '>' or '?' or '\\' or '|')
+            {
+                return true;
+            }
+        }
+
+        return false;
     }
 }
