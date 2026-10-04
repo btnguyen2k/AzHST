@@ -76,6 +76,8 @@ operating-system user.
    - How does Azure Application Gateway work?
    - Compare Azure Front Door and Azure Application Gateway.
    - Propose a resilient Azure architecture for a multi-region web application.
+   Select the refresh button beside **TRY AN EXAMPLE** to load another set of
+   suggestions from the local sample-query catalog.
 
 3. **Create the visualization.** Select **Create project** to generate an
    interactive explanation with diagrams, guidance, and source links.

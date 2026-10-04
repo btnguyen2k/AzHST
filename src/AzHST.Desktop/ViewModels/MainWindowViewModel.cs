@@ -335,6 +335,34 @@ public sealed partial class MainWindowViewModel : ObservableObject
         }
     }
 
+    private bool CanRefreshSampleQueries()
+    {
+        return !IsBusy && _sampleQueryStoreInitialized;
+    }
+
+    [RelayCommand(CanExecute = nameof(CanRefreshSampleQueries))]
+    private async Task RefreshSampleQueriesAsync()
+    {
+        IsBusy = true;
+        OperationErrorMessage = string.Empty;
+        StatusMessage = "Refreshing sample questions...";
+
+        try
+        {
+            await LoadHomeSamplesAsync();
+            StatusMessage = "Sample questions refreshed.";
+        }
+        catch (Exception exception)
+        {
+            StatusMessage =
+                $"Could not refresh sample questions: {exception.Message}";
+        }
+        finally
+        {
+            IsBusy = false;
+        }
+    }
+
     private async Task LoadProjectsAsync(
         CancellationToken cancellationToken = default)
     {
@@ -1110,6 +1138,7 @@ public sealed partial class MainWindowViewModel : ObservableObject
         OpenSettingsCommand.NotifyCanExecuteChanged();
         OpenAboutCommand.NotifyCanExecuteChanged();
         GoHomeCommand.NotifyCanExecuteChanged();
+        RefreshSampleQueriesCommand.NotifyCanExecuteChanged();
         RenameProjectCommand.NotifyCanExecuteChanged();
         RequestProjectDeletionCommand.NotifyCanExecuteChanged();
         ConfirmProjectDeletionCommand.NotifyCanExecuteChanged();

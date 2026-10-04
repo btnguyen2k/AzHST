@@ -609,12 +609,31 @@
                   Text="Ask about Azure services, compare options, or describe an architecture requirement. AzHST turns the answer into an interactive visual page."
                   TextAlignment="Center"
                   TextWrapping="Wrap" />
-              <TextBlock
+              <Grid
                   Margin="0,14,0,0"
-                  FontSize="12"
-                  FontWeight="SemiBold"
-                  Foreground="#7186AD"
-                  Text="TRY AN EXAMPLE" />
+                  ColumnDefinitions="*,Auto">
+                <TextBlock
+                    VerticalAlignment="Center"
+                    FontSize="12"
+                    FontWeight="SemiBold"
+                    Foreground="#7186AD"
+                    Text="TRY AN EXAMPLE" />
+                <Button
+                    Grid.Column="1"
+                    Width="32"
+                    MinHeight="32"
+                    Padding="7"
+                    AutomationProperties.AutomationId="RefreshSampleQueriesButton"
+                    AutomationProperties.Name="Refresh sample questions"
+                    Classes="secondary"
+                    Command="{Binding RefreshSampleQueriesCommand}"
+                    ToolTip.Tip="Refresh sample questions">
+                  <PathIcon
+                      Width="16"
+                      Height="16"
+                      Data="{StaticResource RefreshIcon}" />
+                </Button>
+              </Grid>
               <ItemsControl ItemsSource="{Binding SampleQueries}">
                 <ItemsControl.ItemsPanel>
                   <ItemsPanelTemplate>
