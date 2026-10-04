@@ -16,7 +16,8 @@ public sealed class CopilotVisualizationClient :
     private const int MaximumPromptIcons = 24;
 
     private static readonly TimeSpan AssessmentTimeout = TimeSpan.FromSeconds(45);
-    private static readonly TimeSpan GenerationTimeout = TimeSpan.FromMinutes(3);
+    private static readonly TimeSpan VisualizationGenerationTimeout =
+        TimeSpan.FromMinutes(5);
     private static readonly TimeSpan PresentationPlanningTimeout = TimeSpan.FromMinutes(2);
     private static readonly TimeSpan SampleQueryGenerationTimeout = TimeSpan.FromMinutes(2);
 
@@ -899,13 +900,18 @@ public sealed class CopilotVisualizationClient :
                 {
                     Prompt = prompt,
                 },
-                GenerationTimeout,
+                VisualizationGenerationTimeout,
                 cancellationToken);
         }
         catch (TimeoutException exception)
         {
+            if (cancellationToken.IsCancellationRequested)
+            {
+                throw new OperationCanceledException(cancellationToken);
+            }
+
             throw new VisualizationGenerationException(
-                "Copilot did not finish the visualization within three minutes.",
+                "Copilot did not finish the visualization within five minutes. The GitHub Copilot SDK request reached its configured timeout before returning a complete HTML page.",
                 exception);
         }
 
