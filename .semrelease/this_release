@@ -3,3 +3,5 @@
 #   git log origin..HEAD | grep "^\s" > .semrelease/this_release
 #!VERSION=0.2.0
 - feat(presentations): make Professional Night the default PowerPoint theme
+- feat(projects): reopen saved visualizations and improve them through contextual follow-up requests
+- feat(presentations): generate PowerPoint reliably from content-rich visualizations

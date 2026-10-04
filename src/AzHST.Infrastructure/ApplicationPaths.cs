@@ -7,6 +7,9 @@ public sealed record ApplicationPaths(
     string CopilotDirectory,
     string SampleQueryDatabaseFile)
 {
+    public string ProjectDatabaseFile { get; init; } =
+        Path.Combine(DataDirectory, "projects.db");
+
     public static ApplicationPaths CreateDefault()
     {
         var localData = Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData);

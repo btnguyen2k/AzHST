@@ -30,6 +30,12 @@
       <Setter Property="BorderBrush" Value="#2B3A61" />
       <Setter Property="BorderThickness" Value="1" />
     </Style>
+    <Style Selector="Button.danger">
+      <Setter Property="Background" Value="#7F1D2D" />
+      <Setter Property="Foreground" Value="#FFF1F2" />
+      <Setter Property="BorderBrush" Value="#BE4058" />
+      <Setter Property="BorderThickness" Value="1" />
+    </Style>
     <Style Selector="Button.example">
       <Setter Property="HorizontalContentAlignment" Value="Left" />
       <Setter Property="HorizontalAlignment" Value="Stretch" />
@@ -69,63 +75,141 @@
               TextWrapping="Wrap" />
         </StackPanel>
 
-        <StackPanel Grid.Row="1" Margin="0,34,0,0" Spacing="12">
-          <TextBlock
-              FontSize="12"
-              FontWeight="SemiBold"
-              Foreground="#7186AD"
-              Text="GITHUB COPILOT" />
-          <Border
-              Padding="12"
-              Background="#121D34"
-              CornerRadius="8">
-            <StackPanel Spacing="4">
-              <TextBlock
-                  FontWeight="SemiBold"
-                  Foreground="#DCE7FF"
-                  Text="{Binding AuthenticationMessage}"
-                  TextWrapping="Wrap" />
-              <TextBlock
-                  FontSize="12"
-                  Foreground="#7F94BB"
-                  Text="Authentication is provided by GitHub CLI."
-                  TextWrapping="Wrap" />
-            </StackPanel>
-          </Border>
-          <Button
-              AutomationProperties.Name="{Binding GitHubSignInButtonText}"
-              Classes="primary"
-              Command="{Binding GitHubSignInCommand}">
-            <StackPanel
-                HorizontalAlignment="Center"
-                Orientation="Horizontal"
-                Spacing="8">
-              <PathIcon
-                  Width="16"
-                  Height="16"
-                  Data="{StaticResource AccountIcon}" />
+        <ScrollViewer
+            Grid.Row="1"
+            Margin="0,34,0,14"
+            HorizontalScrollBarVisibility="Disabled"
+            VerticalScrollBarVisibility="Auto">
+          <StackPanel Spacing="12">
+            <TextBlock
+                FontSize="12"
+                FontWeight="SemiBold"
+                Foreground="#7186AD"
+                Text="GITHUB COPILOT" />
+            <Border
+                Padding="12"
+                Background="#121D34"
+                CornerRadius="8">
+              <StackPanel Spacing="4">
+                <TextBlock
+                    FontWeight="SemiBold"
+                    Foreground="#DCE7FF"
+                    Text="{Binding AuthenticationMessage}"
+                    TextWrapping="Wrap" />
+                <TextBlock
+                    FontSize="12"
+                    Foreground="#7F94BB"
+                    Text="Authentication is provided by GitHub CLI."
+                    TextWrapping="Wrap" />
+              </StackPanel>
+            </Border>
+            <Button
+                AutomationProperties.Name="{Binding GitHubSignInButtonText}"
+                Classes="primary"
+                Command="{Binding GitHubSignInCommand}">
+              <StackPanel
+                  HorizontalAlignment="Center"
+                  Orientation="Horizontal"
+                  Spacing="8">
+                <PathIcon
+                    Width="16"
+                    Height="16"
+                    Data="{StaticResource AccountIcon}" />
+                <TextBlock
+                    VerticalAlignment="Center"
+                    Text="{Binding GitHubSignInButtonText}" />
+              </StackPanel>
+            </Button>
+
+            <Border Height="1" Margin="0,14" Background="#253454" />
+
+            <Grid ColumnDefinitions="*,Auto">
               <TextBlock
                   VerticalAlignment="Center"
-                  Text="{Binding GitHubSignInButtonText}" />
-            </StackPanel>
-          </Button>
+                  FontSize="12"
+                  FontWeight="SemiBold"
+                  Foreground="#7186AD"
+                  Text="PROJECTS" />
+              <Button
+                  Grid.Column="1"
+                  MinHeight="32"
+                  Padding="9,5"
+                  AutomationProperties.Name="Create new project"
+                  Classes="secondary"
+                  Command="{Binding GoHomeCommand}"
+                  ToolTip.Tip="Create new project">
+                <PathIcon
+                    Width="15"
+                    Height="15"
+                    Data="{StaticResource NewProjectIcon}" />
+              </Button>
+            </Grid>
+            <TextBlock
+                FontSize="12"
+                Foreground="#7186AD"
+                IsVisible="{Binding HasNoProjects}"
+                Text="Your generated projects will appear here."
+                TextWrapping="Wrap" />
+            <ItemsControl ItemsSource="{Binding Projects}">
+              <ItemsControl.ItemTemplate>
+                <DataTemplate x:DataType="vm:ProjectOptionViewModel">
+                  <Button
+                      MinHeight="58"
+                      Margin="0,0,0,7"
+                      Padding="10,8"
+                      Classes="example"
+                      Command="{Binding OpenCommand}">
+                    <Grid ColumnDefinitions="4,*,Auto">
+                      <Border
+                          Width="4"
+                          Background="#60A5FA"
+                          CornerRadius="2"
+                          IsVisible="{Binding IsActive}" />
+                      <StackPanel
+                          Grid.Column="1"
+                          Margin="9,0"
+                          Spacing="3">
+                        <TextBlock
+                            FontWeight="SemiBold"
+                            Foreground="#DCE7FF"
+                            MaxLines="2"
+                            Text="{Binding Title}"
+                            TextTrimming="CharacterEllipsis"
+                            TextWrapping="Wrap" />
+                        <TextBlock
+                            FontSize="10"
+                            Foreground="#7186AD"
+                            Text="{Binding UpdatedText}" />
+                      </StackPanel>
+                      <PathIcon
+                          Grid.Column="2"
+                          Width="14"
+                          Height="14"
+                          VerticalAlignment="Center"
+                          Data="{StaticResource OpenFileIcon}"
+                          Foreground="#60A5FA" />
+                    </Grid>
+                  </Button>
+                </DataTemplate>
+              </ItemsControl.ItemTemplate>
+            </ItemsControl>
 
-          <Border Height="1" Margin="0,14" Background="#253454" />
+            <Border Height="1" Margin="0,14" Background="#253454" />
 
-          <TextBlock
-              FontSize="12"
-              FontWeight="SemiBold"
-              Foreground="#7186AD"
-              Text="CONFIGURATION" />
-          <Border
-              Padding="12"
-              Background="#121D34"
-              BorderBrush="#253454"
-              BorderThickness="1"
-              CornerRadius="8">
-            <StackPanel Spacing="9">
-              <Grid ColumnDefinitions="Auto,*">
-                <TextBlock
+            <TextBlock
+                FontSize="12"
+                FontWeight="SemiBold"
+                Foreground="#7186AD"
+                Text="CONFIGURATION" />
+            <Border
+                Padding="12"
+                Background="#121D34"
+                BorderBrush="#253454"
+                BorderThickness="1"
+                CornerRadius="8">
+              <StackPanel Spacing="9">
+                <Grid ColumnDefinitions="Auto,*">
+                  <TextBlock
                       FontSize="11"
                       Foreground="#7186AD"
                       Text="AI model" />
@@ -178,26 +262,27 @@
                     Foreground="#DCE7FF"
                     Text="{Binding ResultOpeningMode}" />
               </Grid>
-            </StackPanel>
-          </Border>
-          <Button
-              AutomationProperties.Name="Settings"
-              Classes="secondary"
-              Command="{Binding OpenSettingsCommand}">
-            <StackPanel
-                HorizontalAlignment="Center"
-                Orientation="Horizontal"
-                Spacing="8">
-              <PathIcon
-                  Width="16"
-                  Height="16"
-                  Data="{StaticResource SettingsIcon}" />
-              <TextBlock
-                  VerticalAlignment="Center"
-                  Text="Settings" />
-            </StackPanel>
-          </Button>
-        </StackPanel>
+              </StackPanel>
+            </Border>
+            <Button
+                AutomationProperties.Name="Settings"
+                Classes="secondary"
+                Command="{Binding OpenSettingsCommand}">
+              <StackPanel
+                  HorizontalAlignment="Center"
+                  Orientation="Horizontal"
+                  Spacing="8">
+                <PathIcon
+                    Width="16"
+                    Height="16"
+                    Data="{StaticResource SettingsIcon}" />
+                <TextBlock
+                    VerticalAlignment="Center"
+                    Text="Settings" />
+              </StackPanel>
+            </Button>
+          </StackPanel>
+        </ScrollViewer>
 
         <StackPanel Grid.Row="2" Spacing="8">
           <TextBlock
@@ -214,7 +299,7 @@
     </Border>
 
     <Grid Grid.Column="1" Margin="30,24,30,26" RowDefinitions="Auto,*,Auto">
-      <Grid RowDefinitions="Auto,Auto">
+      <Grid RowDefinitions="Auto,Auto,Auto">
         <Grid ColumnDefinitions="*,Auto">
           <StackPanel Spacing="5">
             <TextBlock
@@ -246,10 +331,10 @@
                 <PathIcon
                     Width="16"
                     Height="16"
-                    Data="{StaticResource HomeIcon}" />
+                    Data="{StaticResource NewProjectIcon}" />
                 <TextBlock
                     VerticalAlignment="Center"
-                    Text="Home" />
+                    Text="New project" />
               </StackPanel>
             </Button>
             <Button
@@ -326,6 +411,112 @@
 
         <Border
             Grid.Row="1"
+            Margin="0,14,0,0"
+            Padding="12"
+            Background="#10182C"
+            BorderBrush="#2A3A5F"
+            BorderThickness="1"
+            CornerRadius="10"
+            IsVisible="{Binding HasActiveProject}">
+          <StackPanel Spacing="10">
+            <Grid ColumnDefinitions="Auto,*,Auto,Auto">
+              <TextBlock
+                  VerticalAlignment="Center"
+                  Margin="0,0,10,0"
+                  FontWeight="SemiBold"
+                  Foreground="#AFC0DF"
+                  Text="Project" />
+              <TextBox
+                  AutomationProperties.AutomationId="ProjectTitle"
+                  Grid.Column="1"
+                  MaxLength="100"
+                  VerticalContentAlignment="Center"
+                  Background="#0E162A"
+                  BorderBrush="#33466F"
+                  Foreground="#DCE7FF"
+                  Text="{Binding ProjectTitle, Mode=TwoWay}" />
+              <Button
+                  AutomationProperties.Name="Save project title"
+                  Grid.Column="2"
+                  Margin="10,0"
+                  Classes="secondary"
+                  Command="{Binding RenameProjectCommand}">
+                <StackPanel
+                    HorizontalAlignment="Center"
+                    Orientation="Horizontal"
+                    Spacing="8">
+                  <PathIcon
+                      Width="16"
+                      Height="16"
+                      Data="{StaticResource SaveIcon}" />
+                  <TextBlock
+                      VerticalAlignment="Center"
+                      Text="Save title" />
+                </StackPanel>
+              </Button>
+              <Button
+                  AutomationProperties.Name="Delete project"
+                  Grid.Column="3"
+                  Classes="danger"
+                  Command="{Binding RequestProjectDeletionCommand}">
+                <StackPanel
+                    HorizontalAlignment="Center"
+                    Orientation="Horizontal"
+                    Spacing="8">
+                  <PathIcon
+                      Width="16"
+                      Height="16"
+                      Data="{StaticResource DeleteIcon}" />
+                  <TextBlock
+                      VerticalAlignment="Center"
+                      Text="Delete" />
+                </StackPanel>
+              </Button>
+            </Grid>
+            <Border
+                Padding="10"
+                Background="#2A1620"
+                BorderBrush="#7A3445"
+                BorderThickness="1"
+                CornerRadius="8"
+                IsVisible="{Binding IsDeleteConfirmationVisible}">
+              <Grid ColumnDefinitions="*,Auto,Auto">
+                <TextBlock
+                    VerticalAlignment="Center"
+                    Foreground="#FFCED5"
+                    Text="Delete this project, revision 000, and its Copilot conversation?"
+                    TextWrapping="Wrap" />
+                <Button
+                    Grid.Column="1"
+                    Margin="10,0"
+                    Classes="secondary"
+                    Command="{Binding CancelProjectDeletionCommand}"
+                    Content="Cancel" />
+                <Button
+                    Grid.Column="2"
+                    AutomationProperties.Name="Confirm project deletion"
+                    Classes="danger"
+                    Command="{Binding ConfirmProjectDeletionCommand}">
+                  <StackPanel
+                      HorizontalAlignment="Center"
+                      Orientation="Horizontal"
+                      Spacing="8">
+                    <PathIcon
+                        Width="16"
+                        Height="16"
+                        Data="{StaticResource DeleteIcon}" />
+                    <TextBlock
+                        VerticalAlignment="Center"
+                        Text="Delete project" />
+                  </StackPanel>
+                </Button>
+              </Grid>
+            </Border>
+          </StackPanel>
+        </Border>
+
+        <Border
+            Grid.Row="2"
             Margin="0,14,0,0"
             Padding="10,8"
             Background="#10182C"
@@ -546,7 +737,7 @@
               AcceptsReturn="True"
               MaxHeight="150"
               MinHeight="84"
-              PlaceholderText="Ask about an Azure service, comparison, integration, or target architecture..."
+              PlaceholderText="{Binding QueryPlaceholder}"
               Text="{Binding Query, Mode=TwoWay}"
               TextWrapping="Wrap" />
           <Grid Grid.Row="1" Margin="0,12,0,0" ColumnDefinitions="*,Auto,Auto">
@@ -572,7 +763,7 @@
                 IsVisible="{Binding IsBuildingPresentation}" />
             <Button
                 AutomationProperties.AutomationId="GenerateButton"
-                AutomationProperties.Name="Generate visualization"
+                AutomationProperties.Name="{Binding PrimaryActionText}"
                 Grid.Column="2"
                 Classes="primary"
                 Command="{Binding GenerateCommand}">
@@ -586,7 +777,7 @@
                     Data="{StaticResource GenerateIcon}" />
                 <TextBlock
                     VerticalAlignment="Center"
-                    Text="Generate visualization" />
+                    Text="{Binding PrimaryActionText}" />
               </StackPanel>
             </Button>
           </Grid>

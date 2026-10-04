@@ -12,7 +12,14 @@ namespace AzHST.Desktop.ViewModels;
 
 public sealed partial class MainWindowViewModel : ObservableObject
 {
-    private readonly GenerateVisualizationUseCase _generationUseCase;
+    private readonly CreateProjectUseCase _createProjectUseCase;
+    private readonly OpenProjectUseCase _openProjectUseCase;
+    private readonly ListProjectsUseCase _listProjectsUseCase;
+    private readonly RefineProjectUseCase _refineProjectUseCase;
+    private readonly RenameProjectUseCase _renameProjectUseCase;
+    private readonly DeleteProjectUseCase _deleteProjectUseCase;
+    private readonly RecordProjectPresentationUseCase
+        _recordProjectPresentationUseCase;
     private readonly GeneratePresentationUseCase _presentationUseCase;
     private readonly SampleQueryUseCase _sampleQueryUseCase;
     private readonly IGitHubAuthenticationService _authenticationService;
@@ -26,6 +33,7 @@ public sealed partial class MainWindowViewModel : ObservableObject
     private readonly IAboutDialogService _aboutDialogService;
     private readonly WebViewAvailability _webViewAvailability;
     private readonly bool _skipGitHubSignInAtStartup;
+    private Project? _activeProject;
     private VisualizationArtifact? _visualizationArtifact;
     private string _generatedQuery = string.Empty;
     private bool _sampleQueryStoreInitialized;
@@ -33,6 +41,15 @@ public sealed partial class MainWindowViewModel : ObservableObject
 
     [ObservableProperty]
     private string _query = string.Empty;
+
+    [ObservableProperty]
+    private string _projectTitle = string.Empty;
+
+    [ObservableProperty]
+    private bool _hasActiveProject;
+
+    [ObservableProperty]
+    private bool _isDeleteConfirmationVisible;
 
     [ObservableProperty]
     [NotifyPropertyChangedFor(nameof(IsIdle))]
@@ -86,7 +103,13 @@ public sealed partial class MainWindowViewModel : ObservableObject
     private AppSettings _settings = new();
 
     public MainWindowViewModel(
-        GenerateVisualizationUseCase generationUseCase,
+        CreateProjectUseCase createProjectUseCase,
+        OpenProjectUseCase openProjectUseCase,
+        ListProjectsUseCase listProjectsUseCase,
+        RefineProjectUseCase refineProjectUseCase,
+        RenameProjectUseCase renameProjectUseCase,
+        DeleteProjectUseCase deleteProjectUseCase,
+        RecordProjectPresentationUseCase recordProjectPresentationUseCase,
         GeneratePresentationUseCase presentationUseCase,
         SampleQueryUseCase sampleQueryUseCase,
         IGitHubAuthenticationService authenticationService,
@@ -102,7 +125,14 @@ public sealed partial class MainWindowViewModel : ObservableObject
         WebViewAvailability webViewAvailability,
         bool skipGitHubSignInAtStartup = false)
     {
-        _generationUseCase = generationUseCase;
+        _createProjectUseCase = createProjectUseCase;
+        _openProjectUseCase = openProjectUseCase;
+        _listProjectsUseCase = listProjectsUseCase;
+        _refineProjectUseCase = refineProjectUseCase;
+        _renameProjectUseCase = renameProjectUseCase;
+        _deleteProjectUseCase = deleteProjectUseCase;
+        _recordProjectPresentationUseCase =
+            recordProjectPresentationUseCase;
         _presentationUseCase = presentationUseCase;
         _sampleQueryUseCase = sampleQueryUseCase;
         _authenticationService = authenticationService;
@@ -135,6 +165,20 @@ public sealed partial class MainWindowViewModel : ObservableObject
         !string.IsNullOrWhiteSpace(OperationErrorMessage);
 
     public ObservableCollection<SampleQueryOptionViewModel> SampleQueries { get; } = [];
+
+    public ObservableCollection<ProjectOptionViewModel> Projects { get; } = [];
+
+    public bool HasProjects => Projects.Count > 0;
+
+    public bool HasNoProjects => !HasProjects;
+
+    public string PrimaryActionText => HasActiveProject
+        ? "Refine visualization"
+        : "Create project";
+
+    public string QueryPlaceholder => HasActiveProject
+        ? "Describe what to add, remove, compare, clarify, or redesign..."
+        : "Ask about an Azure service, comparison, integration, or target architecture...";
 
     public Uri? EmbeddedPreviewUri =>
         _webViewAvailability.IsAvailable ? PreviewUri : null;
@@ -173,6 +217,7 @@ public sealed partial class MainWindowViewModel : ObservableObject
         string? configurationError = null;
         string? authenticationError = null;
         string? sampleQueryNotice = null;
+        string? projectNotice = null;
 
         try
         {
@@ -191,6 +236,16 @@ public sealed partial class MainWindowViewModel : ObservableObject
         {
             sampleQueryNotice =
                 $"Sample query database error: {exception.Message}";
+        }
+
+        try
+        {
+            StatusMessage = "Loading local projects...";
+            await LoadProjectsAsync();
+        }
+        catch (Exception exception)
+        {
+            projectNotice = $"Project history error: {exception.Message}";
         }
 
         try
@@ -242,9 +297,19 @@ public sealed partial class MainWindowViewModel : ObservableObject
                 : "Sign in with GitHub to enable visualization generation.";
             StatusMessage = AppendNotice(
                 configurationError ?? authenticationError ?? readyStatus,
-                sampleQueryNotice);
+                JoinNotices(sampleQueryNotice, projectNotice));
             IsBusy = false;
         }
+    }
+
+    private static string? JoinNotices(params string?[] notices)
+    {
+        var available = notices
+            .Where(notice => !string.IsNullOrWhiteSpace(notice))
+            .ToArray();
+        return available.Length == 0
+            ? null
+            : string.Join(" ", available);
     }
 
     private static string AppendNotice(string message, string? notice)
@@ -268,6 +333,32 @@ public sealed partial class MainWindowViewModel : ObservableObject
         {
             SampleQueries.Add(option);
         }
+    }
+
+    private async Task LoadProjectsAsync(
+        CancellationToken cancellationToken = default)
+    {
+        var projects = await _listProjectsUseCase.ExecuteAsync(
+            cancellationToken);
+        var activeProjectId = _activeProject?.Id;
+        var options = projects
+            .Select(project => new ProjectOptionViewModel(
+                project,
+                string.Equals(
+                    project.Id,
+                    activeProjectId,
+                    StringComparison.Ordinal),
+                OpenProjectAsync))
+            .ToArray();
+
+        Projects.Clear();
+        foreach (var option in options)
+        {
+            Projects.Add(option);
+        }
+
+        OnPropertyChanged(nameof(HasProjects));
+        OnPropertyChanged(nameof(HasNoProjects));
     }
 
     private static string ResolveThemeName(
@@ -297,9 +388,12 @@ public sealed partial class MainWindowViewModel : ObservableObject
         IsGenerating = true;
         OperationErrorMessage = string.Empty;
         var progressEnabled = 1;
-        var lastProgressMessage = "Preparing visualization generation...";
+        var lastProgressMessage = HasActiveProject
+            ? "Preparing project refinement..."
+            : "Preparing project creation...";
         StatusMessage = lastProgressMessage;
         var submittedQuery = Query;
+        var wasRefinement = _activeProject is not null;
         var progress = new Progress<GenerationProgress>(
             update =>
             {
@@ -314,31 +408,36 @@ public sealed partial class MainWindowViewModel : ObservableObject
 
         try
         {
-            var artifact = await _generationUseCase.ExecuteAsync(
-                submittedQuery,
-                Settings,
-                progress,
-                cancellationToken);
+            var workspace = _activeProject is null
+                ? await _createProjectUseCase.ExecuteAsync(
+                    submittedQuery,
+                    Settings,
+                    progress,
+                    cancellationToken)
+                : await _refineProjectUseCase.ExecuteAsync(
+                    _activeProject.Id,
+                    submittedQuery,
+                    Settings,
+                    progress,
+                    cancellationToken);
 
-            _visualizationArtifact = artifact;
-            _generatedQuery = submittedQuery.Trim();
-            GeneratedFilePath = artifact.FilePath;
-            PreviewUri = artifact.FileUri;
-            PresentationFilePath = null;
-            PresentationUri = null;
-            BuildPowerPointCommand.NotifyCanExecuteChanged();
+            ApplyWorkspace(workspace);
+            Query = string.Empty;
+            await LoadProjectsAsync(cancellationToken);
             Interlocked.Exchange(ref progressEnabled, 0);
 
             if (Settings.OpenResultsInExternalBrowser || !_webViewAvailability.IsAvailable)
             {
-                _browser.Open(artifact.FileUri);
+                _browser.Open(workspace.Visualization.FileUri);
                 StatusMessage = _webViewAvailability.IsAvailable
-                    ? "Visualization ready and opened in the default browser."
-                    : "Embedded preview is unavailable; opened the visualization in the default browser.";
+                    ? wasRefinement
+                        ? "Project updated and opened in the default browser."
+                        : "Project created and opened in the default browser."
+                    : "Embedded preview is unavailable; opened the project visualization in the default browser.";
             }
             else
             {
-                StatusMessage = "Visualization ready in the embedded preview.";
+                StatusMessage = "Project ready in the embedded preview.";
             }
         }
         catch (OperationCanceledException)
@@ -354,9 +453,10 @@ public sealed partial class MainWindowViewModel : ObservableObject
         catch (Exception exception)
         {
             Interlocked.Exchange(ref progressEnabled, 0);
-            StatusMessage = "Visualization generation failed. Review the error below and retry.";
+            StatusMessage =
+                "Project generation failed. Review the error below and retry.";
             OperationErrorMessage = BuildOperationError(
-                "Visualization generation failed.",
+                "Project generation failed.",
                 lastProgressMessage,
                 exception);
         }
@@ -371,6 +471,7 @@ public sealed partial class MainWindowViewModel : ObservableObject
     private bool CanBuildPowerPoint()
     {
         return !IsBusy
+            && IsAuthenticated
             && HasPreview;
     }
 
@@ -412,6 +513,17 @@ public sealed partial class MainWindowViewModel : ObservableObject
                 Settings,
                 progress,
                 cancellationToken);
+
+            if (_activeProject is not null)
+            {
+                _activeProject =
+                    await _recordProjectPresentationUseCase.ExecuteAsync(
+                        _activeProject.Id,
+                        artifact,
+                        Settings.Themes.PresentationThemeId,
+                        cancellationToken);
+                await LoadProjectsAsync(cancellationToken);
+            }
 
             PresentationFilePath = artifact.FilePath;
             PresentationUri = artifact.FileUri;
@@ -580,9 +692,157 @@ public sealed partial class MainWindowViewModel : ObservableObject
         }
     }
 
+    private async Task OpenProjectAsync(string projectId)
+    {
+        if (IsBusy)
+        {
+            return;
+        }
+
+        IsBusy = true;
+        OperationErrorMessage = string.Empty;
+        StatusMessage = "Opening project...";
+
+        try
+        {
+            var workspace = await _openProjectUseCase.ExecuteAsync(projectId);
+            ApplyWorkspace(workspace);
+            await LoadProjectsAsync();
+            StatusMessage =
+                "Project opened. Enter a follow-up request to refine revision 000.";
+        }
+        catch (Exception exception)
+        {
+            StatusMessage =
+                "Could not open the project. Review the error below.";
+            OperationErrorMessage = BuildOperationError(
+                "Project open failed.",
+                "Loading the saved project",
+                exception);
+        }
+        finally
+        {
+            IsBusy = false;
+        }
+    }
+
+    private bool CanRenameProject()
+    {
+        return !IsBusy
+            && _activeProject is not null
+            && !string.IsNullOrWhiteSpace(ProjectTitle)
+            && !string.Equals(
+                _activeProject.Title,
+                ProjectTitle.Trim(),
+                StringComparison.Ordinal);
+    }
+
+    [RelayCommand(CanExecute = nameof(CanRenameProject))]
+    private async Task RenameProjectAsync()
+    {
+        if (_activeProject is null)
+        {
+            return;
+        }
+
+        IsBusy = true;
+        OperationErrorMessage = string.Empty;
+
+        try
+        {
+            _activeProject = await _renameProjectUseCase.ExecuteAsync(
+                _activeProject.Id,
+                ProjectTitle);
+            ProjectTitle = _activeProject.Title;
+            await LoadProjectsAsync();
+            StatusMessage = "Project title saved.";
+        }
+        catch (Exception exception)
+        {
+            StatusMessage =
+                "Could not rename the project. Review the error below.";
+            OperationErrorMessage = BuildOperationError(
+                "Project rename failed.",
+                "Saving the project title",
+                exception);
+        }
+        finally
+        {
+            IsBusy = false;
+        }
+    }
+
+    private bool CanRequestProjectDeletion()
+    {
+        return !IsBusy
+            && _activeProject is not null
+            && !IsDeleteConfirmationVisible;
+    }
+
+    [RelayCommand(CanExecute = nameof(CanRequestProjectDeletion))]
+    private void RequestProjectDeletion()
+    {
+        IsDeleteConfirmationVisible = true;
+        StatusMessage =
+            "Confirm deletion to remove this project, its generated files, and its Copilot conversation.";
+    }
+
+    private bool CanCancelProjectDeletion()
+    {
+        return !IsBusy && IsDeleteConfirmationVisible;
+    }
+
+    [RelayCommand(CanExecute = nameof(CanCancelProjectDeletion))]
+    private void CancelProjectDeletion()
+    {
+        IsDeleteConfirmationVisible = false;
+        StatusMessage = "Project deletion cancelled.";
+    }
+
+    private bool CanConfirmProjectDeletion()
+    {
+        return !IsBusy
+            && _activeProject is not null
+            && IsDeleteConfirmationVisible;
+    }
+
+    [RelayCommand(CanExecute = nameof(CanConfirmProjectDeletion))]
+    private async Task ConfirmProjectDeletionAsync()
+    {
+        if (_activeProject is null)
+        {
+            return;
+        }
+
+        IsBusy = true;
+        OperationErrorMessage = string.Empty;
+        var projectId = _activeProject.Id;
+
+        try
+        {
+            await _deleteProjectUseCase.ExecuteAsync(projectId);
+            ResetCurrentVisualization();
+            await LoadProjectsAsync();
+            StatusMessage = "Project deleted.";
+        }
+        catch (Exception exception)
+        {
+            StatusMessage =
+                "Could not delete the project. Review the error below.";
+            OperationErrorMessage = BuildOperationError(
+                "Project deletion failed.",
+                "Removing the project and its Copilot conversation",
+                exception);
+        }
+        finally
+        {
+            IsBusy = false;
+        }
+    }
+
     private bool CanGoHome()
     {
-        return !IsBusy && HasPreview;
+        return !IsBusy && HasActiveProject;
     }
 
     [RelayCommand(CanExecute = nameof(CanGoHome))]
@@ -615,7 +875,7 @@ public sealed partial class MainWindowViewModel : ObservableObject
             }
 
             StatusMessage = AppendNotice(
-                "Home ready. Choose a sample or ask your own Azure question.",
+                "New project ready. Choose a sample or ask your own Azure question.",
                 refreshNotice);
         }
         catch (Exception exception)
@@ -631,12 +891,55 @@ public sealed partial class MainWindowViewModel : ObservableObject
 
     private void ResetCurrentVisualization()
     {
+        _activeProject = null;
         _visualizationArtifact = null;
         _generatedQuery = string.Empty;
+        Query = string.Empty;
+        ProjectTitle = string.Empty;
+        HasActiveProject = false;
+        IsDeleteConfirmationVisible = false;
         GeneratedFilePath = null;
         PreviewUri = null;
         PresentationFilePath = null;
         PresentationUri = null;
+        BuildPowerPointCommand.NotifyCanExecuteChanged();
+    }
+
+    private void ApplyWorkspace(ProjectWorkspace workspace)
+    {
+        _activeProject = workspace.Project;
+        _visualizationArtifact = workspace.Visualization;
+        _generatedQuery = workspace.Project.OriginalQuery;
+        Query = string.Empty;
+        ProjectTitle = workspace.Project.Title;
+        HasActiveProject = true;
+        IsDeleteConfirmationVisible = false;
+        GeneratedFilePath = workspace.Visualization.FilePath;
+        PreviewUri = workspace.Visualization.FileUri;
+
+        var presentationFile = workspace.Project.Revision.PresentationFilePath;
+        if (!string.IsNullOrWhiteSpace(presentationFile)
+            && File.Exists(presentationFile))
+        {
+            PresentationFilePath = presentationFile;
+            PresentationUri = new Uri(Path.GetFullPath(presentationFile));
+        }
+        else
+        {
+            PresentationFilePath = null;
+            PresentationUri = null;
+        }
+
+        Settings = Settings with
+        {
+            Model = workspace.Project.SelectedModelId,
+            Themes = Settings.Themes with
+            {
+                HtmlThemeId = workspace.Project.HtmlThemeId,
+                PresentationThemeId =
+                    workspace.Project.PresentationThemeId,
+            },
+        };
         BuildPowerPointCommand.NotifyCanExecuteChanged();
     }
 
@@ -772,6 +1075,29 @@ public sealed partial class MainWindowViewModel : ObservableObject
         GenerateCommand.NotifyCanExecuteChanged();
     }
 
+    partial void OnProjectTitleChanged(string value)
+    {
+        RenameProjectCommand.NotifyCanExecuteChanged();
+    }
+
+    partial void OnHasActiveProjectChanged(bool value)
+    {
+        OnPropertyChanged(nameof(PrimaryActionText));
+        OnPropertyChanged(nameof(QueryPlaceholder));
+        RenameProjectCommand.NotifyCanExecuteChanged();
+        RequestProjectDeletionCommand.NotifyCanExecuteChanged();
+        ConfirmProjectDeletionCommand.NotifyCanExecuteChanged();
+        CancelProjectDeletionCommand.NotifyCanExecuteChanged();
+        GoHomeCommand.NotifyCanExecuteChanged();
+    }
+
+    partial void OnIsDeleteConfirmationVisibleChanged(bool value)
+    {
+        RequestProjectDeletionCommand.NotifyCanExecuteChanged();
+        ConfirmProjectDeletionCommand.NotifyCanExecuteChanged();
+        CancelProjectDeletionCommand.NotifyCanExecuteChanged();
+    }
+
     partial void OnIsBusyChanged(bool value)
     {
         GenerateCommand.NotifyCanExecuteChanged();
@@ -784,6 +1110,10 @@ public sealed partial class MainWindowViewModel : ObservableObject
         OpenSettingsCommand.NotifyCanExecuteChanged();
         OpenAboutCommand.NotifyCanExecuteChanged();
         GoHomeCommand.NotifyCanExecuteChanged();
+        RenameProjectCommand.NotifyCanExecuteChanged();
+        RequestProjectDeletionCommand.NotifyCanExecuteChanged();
+        ConfirmProjectDeletionCommand.NotifyCanExecuteChanged();
+        CancelProjectDeletionCommand.NotifyCanExecuteChanged();
     }
 
     partial void OnIsAuthenticatedChanged(bool value)

@@ -15,12 +15,14 @@ responses.
   receive a visual Azure architecture proposal with operational considerations.
 - **Service comparisons:** Compare Azure services, capabilities, trade-offs,
   and suitable use cases side by side.
+- **Continuing projects:** Reopen local projects and refine the same visual
+  answer through follow-up requests that retain the Copilot conversation.
 - **Presentation-ready output:** Export the visualization as an editable
   PowerPoint deck for reviews, workshops, and stakeholder discussions.
 - **Traceable recommendations:** Follow links to the official Microsoft and
   Azure documentation used as sources.
-- **Local ownership:** Keep generated HTML pages and PowerPoint files on your
-  computer and open them in AzHST or your preferred applications.
+- **Local ownership:** Keep project history, generated HTML pages, and
+  PowerPoint files on your computer.
 
 ## Quick installation
 
@@ -78,27 +80,32 @@ dotnet run --project src/AzHST.Desktop/AzHST.Desktop.csproj --configuration Rele
    gh auth login --hostname github.com --git-protocol https --web
    ```
 
-2. **Ask a question.** Choose a suggested question or enter your own request,
+2. **Start a project.** Choose a suggested question or enter your own request,
    such as:
    - How does Azure Application Gateway work?
    - Compare Azure Front Door and Azure Application Gateway.
    - Propose a resilient Azure architecture for a multi-region web application.
 
-3. **Generate the visualization.** Select **Generate visualization** to create
-   an interactive explanation with diagrams, guidance, and source links.
+3. **Create the visualization.** Select **Create project** to generate an
+   interactive explanation with diagrams, guidance, and source links.
 
-4. **Explore or share the result.** Review it inside AzHST or select
+4. **Continue the conversation.** Enter a follow-up request and select
+   **Refine visualization**. AzHST updates revision `000` while preserving the
+   previous valid result if generation fails. Reopen saved work from the
+   **Projects** list.
+
+5. **Explore or share the result.** Review it inside AzHST or select
    **Open in browser**.
 
-5. **Create a presentation.** Select **Build PowerPoint**, then
+6. **Create a presentation.** Select **Build PowerPoint**, then
    **Open PowerPoint** to review the editable deck.
 
-6. **Adjust preferences.** Open **Settings** to choose the Copilot model,
+7. **Adjust preferences.** Open **Settings** to choose the Copilot model,
    visualization theme, PowerPoint theme, output directory, and browser
    behavior.
 
-Generated pages and presentations are stored locally in the configured output
-directory.
+Project history is stored locally. Generated pages and presentations remain
+in the configured output directory.
 
 ## Azure icon usage
 

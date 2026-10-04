@@ -2,10 +2,10 @@
 
 ## Product direction
 
-The next development should make AzHST an iterative architecture workspace
-rather than a one-shot generator. Users should be able to reopen an existing
-project and continue its Copilot conversation with targeted follow-up requests
-without starting over.
+AzHST is evolving into an iterative architecture workspace rather than a
+one-shot generator. The Priority 1 baseline is implemented: users can reopen
+an existing project and continue its Copilot conversation with targeted
+follow-up requests without starting over.
 
 ## Priorities
 
@@ -20,17 +20,22 @@ without starting over.
 | 7 | **Additional sharing formats** | Export diagrams as SVG or PNG and documents as PDF alongside the existing HTML and PowerPoint outputs. |
 | 8 | **Privacy assistance** | Detect likely credentials, subscription IDs, internal hostnames, and confidential information before a prompt is sent to GitHub Copilot. |
 
-## Focused next-development scope
+## Focused development scope
 
-1. Add a local project and generation-history browser.
-2. Support follow-up prompts by resuming the selected project's persistent
+1. [x] Add a local project and generation-history browser.
+2. [x] Support follow-up prompts by resuming the selected project's persistent
    Copilot conversation.
-3. Store the current project output under revision `000`, while keeping the
+3. [x] Store the current project output under revision `000`, while keeping the
    storage model and APIs ready for additional revisions later.
-4. Display assumptions, source dates, and unanswered requirements.
-5. Add cancellation, retry, and clearer generation progress.
+4. [ ] Display assumptions, source dates, and unanswered requirements.
+5. [ ] Add retry controls and continue refining generation progress and
+   recovery.
 
 ## Priority 1 implementation plan
+
+**Status:** The revision `000` project workspace, persistent Copilot
+conversation, local project browser, rename/delete operations, and
+project-aware PowerPoint flow are implemented.
 
 ### Decisions
 
@@ -148,7 +153,8 @@ Infrastructure implementations:
 - `SqliteProjectRepository` stores projects and revision `000`.
 - `FileProjectArtifactStore` performs atomic writes beneath the project and
   revision directory.
-- `CopilotProjectConversation` creates, resumes, and deletes SDK sessions.
+- `CopilotVisualizationClient` implements `ICopilotProjectConversation` to
+  create, resume, and delete SDK sessions alongside its transient operations.
 
 The Desktop layer adds:
 

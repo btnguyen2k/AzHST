@@ -8,6 +8,7 @@ namespace AzHST.Infrastructure;
 
 public sealed class CopilotVisualizationClient :
     ICopilotVisualizationClient,
+    ICopilotProjectConversation,
     ICopilotPresentationPlanner,
     ICopilotSampleQueryGenerator,
     ICopilotModelCatalog
@@ -112,21 +113,21 @@ public sealed class CopilotVisualizationClient :
         - If the page has progressive steps, request paths, choices, healthy/unhealthy outcomes, failover, or blocked states, represent them as an overview plus adjacent state slides in the same order.
         - Prefix progressive state-slide titles with "Step N —" so the sequence remains obvious without animation.
         - Map the remaining visible page sections to later slides in top-to-bottom order. Do not flatten away their hierarchy.
-        - sectionTitle preserves the nearest visible parent h2 or equivalent section heading. Omit it only when no distinct parent heading exists.
-        - title identifies the current visual, step, comparison, card group, or callout.
-        - subtitle preserves the visible h3, card heading, scenario heading, or equivalent heading nested under title.
+        - sectionTitle preserves the nearest visible parent h2 or equivalent section heading and is at most {{GeneratePresentationUseCase.MaximumSectionTitleLength}} characters. Omit it only when no distinct parent heading exists.
+        - title identifies the current visual, step, comparison, card group, or callout and is at most {{GeneratePresentationUseCase.MaximumTitleLength}} characters.
+        - subtitle preserves the visible h3, card heading, scenario heading, or equivalent heading nested under title and is at most {{GeneratePresentationUseCase.MaximumSlideSubtitleLength}} characters.
         - Do not leave sectionTitle or subtitle empty merely to simplify the slide when the mapped HTML has a distinct visible heading at that level.
         - For progressive slides sourced from a visible group such as "All steps and outcomes", repeat that group heading in subtitle on each adjacent step slide.
-        - summary preserves the visible explanatory paragraph for that item instead of replacing it with a generic restatement.
+        - summary preserves the visible explanatory paragraph for that item instead of replacing it with a generic restatement and is at most {{GeneratePresentationUseCase.MaximumSummaryLength}} characters.
         - callout preserves one visible note, warning, assumption, distinction, or operational caveat, including its visible label. Keep it within {{GeneratePresentationUseCase.MaximumCalloutLength}} characters and leave it empty only when the mapped HTML content has no callout.
         - When sibling HTML cards form one section, preserve the shared sectionTitle on adjacent slides and keep each card's tag/title, heading, and explanation in title, subtitle, and summary.
         - Diagram slides use 2-6 nodes and at least one connection. Split a larger visual into an overview plus focused state slides rather than shrinking or omitting explanations.
         - Comparison slides use 2-4 nodes and no connections. Cards slides use 2-6 nodes and no connections.
-        - Visual slides use nodes instead of bullets. Content and summary slides use 2-4 concise bullets and leave nodes and connections empty.
-        - Node IDs use lowercase letters, digits, and hyphens. Tone is primary, accent, success, warning, danger, or neutral.
+        - Visual slides use nodes instead of bullets. Content and summary slides use 2-4 concise bullets of at most {{GeneratePresentationUseCase.MaximumBulletLength}} characters each and leave nodes and connections empty.
+        - Node IDs use lowercase letters, digits, and hyphens. Node labels are at most {{GeneratePresentationUseCase.MaximumNodeLabelLength}} characters and node details are at most {{GeneratePresentationUseCase.MaximumNodeDetailLength}} characters. Tone is primary, accent, success, warning, danger, or neutral.
         - Use the same approved Azure icon key in iconKey that the visible HTML uses for that service; otherwise use an empty string.
-        - Connection labels are optional and limited to 1-3 short words.
-        - The top-level sources array contains 1-10 real references used by the page. Each entry has the exact visible link title and its absolute HTTPS URL.
+        - Connection labels are optional, limited to 1-3 short words, and at most {{GeneratePresentationUseCase.MaximumConnectionLabelLength}} characters.
+        - The top-level sources array contains 1-10 real references used by the page. Each entry has the exact visible link title, limited to {{PresentationSourcePolicy.MaximumTitleLength}} characters, and its absolute HTTPS URL.
         - Source URLs must use official Microsoft documentation hosts such as learn.microsoft.com or azure.microsoft.com, or an official Azure/Microsoft GitHub repository. Never invent citations or URLs.
         - Every slide source is a title from the top-level sources array and is visibly relevant to that slide. A slide may cite any relevant subset, including all top-level sources.
         - Do not add a Sources slide to slides; AzHST appends it from the top-level sources array.
@@ -173,22 +174,22 @@ public sealed class CopilotVisualizationClient :
         - Do not invent details that are absent from the user question or visualization outline.
 
         Plan and narrative requirements:
-        - title: concise presentation title, at most 120 characters
-        - subtitle: one sentence describing the scope, at most 240 characters
-        - sources: up to 10 source titles and exact approved HTTPS URLs visibly present in the outline; leave it empty only when the legacy outline contains no source URL
+        - title: concise presentation title, at most {{GeneratePresentationUseCase.MaximumTitleLength}} characters
+        - subtitle: one sentence describing the scope, at most {{GeneratePresentationUseCase.MaximumSubtitleLength}} characters
+        - sources: up to 10 source titles of at most {{PresentationSourcePolicy.MaximumTitleLength}} characters and exact approved HTTPS URLs visibly present in the outline; leave it empty only when the legacy outline contains no source URL
         - slides: 4-9 content slides; do not include the title slide because AzHST adds it
         - do not include a Sources slide because AzHST appends it from the top-level sources array
         - every slide has one exact kind: content, diagram, comparison, cards, or summary
-        - sectionTitle is the nearest parent section heading from the outline, or empty when none exists
+        - sectionTitle is the nearest parent section heading from the outline, is at most {{GeneratePresentationUseCase.MaximumSectionTitleLength}} characters, or is empty when none exists
         - the first content slide must be diagram, comparison, or cards; never begin with a bullet-only executive overview
         - at least two thirds of content slides must be diagram, comparison, or cards
-        - every slide has a concise title plus optional subtitle, summary, and callout
-        - subtitle preserves a nested visible heading; summary preserves its explanation; callout preserves a distinct visible note or warning and is at most {{GeneratePresentationUseCase.MaximumCalloutLength}} characters
+        - every slide has a concise title of at most {{GeneratePresentationUseCase.MaximumTitleLength}} characters plus optional subtitle, summary, and callout
+        - subtitle preserves a nested visible heading and is at most {{GeneratePresentationUseCase.MaximumSlideSubtitleLength}} characters; summary preserves its explanation and is at most {{GeneratePresentationUseCase.MaximumSummaryLength}} characters; callout preserves a distinct visible note or warning and is at most {{GeneratePresentationUseCase.MaximumCalloutLength}} characters
         - when a mapped section or card has visible parent and nested headings, preserve both; do not omit hierarchy just to shorten the slide
-        - content and summary slides use 2-4 short bullets, normally no more than 18 words each
+        - content and summary slides use 2-4 short bullets; each bullet must be at most {{GeneratePresentationUseCase.MaximumBulletLength}} characters and normally no more than 18 words
         - include security, resiliency, operations, cost, and trade-offs where relevant
         - end with a cards or summary slide titled "Validate before production" when the outline contains production caveats
-        - per-slide sources contain only titles from the top-level sources array, or real visible source names when a legacy outline has no URL; a slide may cite all 10 sources when relevant; never invent citations or URLs
+        - per-slide sources contain only titles from the top-level sources array, or real visible source names of at most {{PresentationSourcePolicy.MaximumTitleLength}} characters when a legacy outline has no URL; a slide may cite all 10 sources when relevant; never invent citations or URLs
 
         Visual slide requirements:
         - diagram, comparison, and cards slides leave bullets empty; use concise node labels and details instead
@@ -196,12 +197,12 @@ public sealed class CopilotVisualizationClient :
         - comparison slides contain 2-4 nodes and no connections
         - cards slides contain 2-6 nodes and no connections
         - node id uses lowercase letters, digits, and hyphens only, begins with a letter or digit, and is unique within the slide
-        - node label is concise; diagram-node detail is normally no more than 16 words, while comparison and card details may preserve one visible explanatory paragraph up to 220 characters
+        - node label is concise and at most {{GeneratePresentationUseCase.MaximumNodeLabelLength}} characters; every node detail must be at most {{GeneratePresentationUseCase.MaximumNodeDetailLength}} characters; diagram-node detail is normally no more than 16 words, while comparison and card details may preserve one short visible explanatory paragraph
         - iconKey is either an exact key from the approved Azure icon catalog or an empty string
         - tone is exactly one of primary, accent, success, warning, danger, or neutral
         - use success for benefits or healthy states, warning for trade-offs or validation points, danger for risks or failures, and neutral for supporting context
         - connections refer to node IDs from the same slide
-        - connection labels are optional; when needed, use only 1-3 short words such as HTTPS, deploy, verify, or failover
+        - connection labels are optional; when needed, use only 1-3 short words such as HTTPS, deploy, verify, or failover and never exceed {{GeneratePresentationUseCase.MaximumConnectionLabelLength}} characters
         - use no more than 16 connections per slide
         - for a process, order nodes from source to destination
         - for a comparison, use one node per compared option and leave connections empty
@@ -337,7 +338,8 @@ public sealed class CopilotVisualizationClient :
         }
     }
 
-    public async Task<string> GenerateHtmlAsync(
+    public async Task<string> CreateAsync(
+        string sessionId,
         string query,
         string model,
         string visualizationId,
@@ -345,63 +347,167 @@ public sealed class CopilotVisualizationClient :
         IProgress<GenerationProgress>? progress = null,
         CancellationToken cancellationToken = default)
     {
+        ArgumentException.ThrowIfNullOrWhiteSpace(sessionId);
+        ArgumentException.ThrowIfNullOrWhiteSpace(query);
         ArgumentNullException.ThrowIfNull(theme);
         cancellationToken.ThrowIfCancellationRequested();
         Directory.CreateDirectory(_paths.CopilotDirectory);
 
         progress?.Report(new GenerationProgress(
             GenerationStage.Connecting,
-            "Connecting to GitHub Copilot..."));
+            "Starting the project conversation..."));
 
         await using var client = CreateClient();
         await client.StartAsync();
         cancellationToken.ThrowIfCancellationRequested();
 
-        await using var session = await CreateSessionAsync(
-            client,
-            model,
-            BuildVisualizationSystemMessage(query, theme));
-
-        progress?.Report(new GenerationProgress(
-            GenerationStage.Generating,
-            $"Generating an interactive visualization with {model}..."));
-
-        AssistantMessageEvent? response;
+        CopilotSession? session = null;
         try
         {
-            response = await session.SendAndWaitAsync(
-                new MessageOptions
+            session = await CreateSessionAsync(
+                client,
+                model,
+                BuildVisualizationSystemMessage(query, theme),
+                sessionId);
+
+            await using (session)
+            {
+                return await SendVisualizationRequestAsync(
+                    session,
+                    $"""
+                    Create the initial visualization for this project:
+
+                    <user-question>
+                    {query}
+                    </user-question>
+
+                    <visualization-id>
+                    {visualizationId}
+                    </visualization-id>
+                    """,
+                    model,
+                    "Generating the initial project visualization",
+                    progress,
+                    cancellationToken);
+            }
+        }
+        catch (Exception exception) when (session is not null)
+        {
+            try
+            {
+                await client.DeleteSessionAsync(
+                    sessionId,
+                    CancellationToken.None);
+            }
+            catch (Exception cleanupException)
+            {
+                throw new AggregateException(
+                    "The project conversation failed and its partial session could not be removed.",
+                    exception,
+                    cleanupException);
+            }
+
+            throw;
+        }
+    }
+
+    public async Task<string> RefineAsync(
+        string sessionId,
+        string originalQuery,
+        string followUpRequest,
+        string model,
+        string visualizationId,
+        HtmlThemeDefinition theme,
+        IProgress<GenerationProgress>? progress = null,
+        CancellationToken cancellationToken = default)
+    {
+        ArgumentException.ThrowIfNullOrWhiteSpace(sessionId);
+        ArgumentException.ThrowIfNullOrWhiteSpace(originalQuery);
+        ArgumentException.ThrowIfNullOrWhiteSpace(followUpRequest);
+        ArgumentNullException.ThrowIfNull(theme);
+        cancellationToken.ThrowIfCancellationRequested();
+        Directory.CreateDirectory(_paths.CopilotDirectory);
+
+        progress?.Report(new GenerationProgress(
+            GenerationStage.Connecting,
+            "Resuming the project conversation..."));
+
+        await using var client = CreateClient();
+        await client.StartAsync();
+        cancellationToken.ThrowIfCancellationRequested();
+
+        CopilotSession session;
+        try
+        {
+            session = await client.ResumeSessionAsync(
+                sessionId,
+                new ResumeSessionConfig
                 {
-                    Prompt = $"""
-                        Create the visualization for this request:
-
-                        <user-question>
-                        {query}
-                        </user-question>
-
-                        <visualization-id>
-                        {visualizationId}
-                        </visualization-id>
-                        """,
+                    AvailableTools = [],
+                    ClientName = "AzHST",
+                    EnableSessionStore = false,
+                    EnableSessionTelemetry = false,
+                    Model = model,
+                    SystemMessage = new SystemMessageConfig
+                    {
+                        Content = BuildVisualizationSystemMessage(
+                            originalQuery,
+                            theme),
+                        Mode = SystemMessageMode.Append,
+                    },
                 },
-                GenerationTimeout,
                 cancellationToken);
         }
-        catch (TimeoutException exception)
+        catch (Exception exception)
+            when (exception is not OperationCanceledException)
         {
             throw new VisualizationGenerationException(
-                "Copilot did not finish the visualization within three minutes.",
+                "The saved Copilot conversation could not be resumed. It may have been removed from this device.",
                 exception);
         }
 
-        var content = response?.Data.Content;
-        if (string.IsNullOrWhiteSpace(content))
+        await using (session)
         {
-            throw new VisualizationGenerationException(
-                "Copilot completed the request without returning an HTML page.");
-        }
+            return await SendVisualizationRequestAsync(
+                session,
+                $"""
+                Update the existing project visualization to satisfy this follow-up request:
 
-        return content;
+                <original-user-question>
+                {originalQuery}
+                </original-user-question>
+
+                <follow-up-request>
+                {followUpRequest}
+                </follow-up-request>
+
+                <visualization-id>
+                {visualizationId}
+                </visualization-id>
+
+                Return a complete standalone replacement HTML document, not a patch,
+                diff, fragment, explanation, or Markdown code fence. Preserve accurate
+                useful content from the current visualization unless the follow-up asks
+                to change it. The replacement must satisfy every system requirement.
+                """,
+                model,
+                "Refining the project visualization",
+                progress,
+                cancellationToken);
+        }
+    }
+
+    public async Task DeleteAsync(
+        string sessionId,
+        CancellationToken cancellationToken = default)
+    {
+        ArgumentException.ThrowIfNullOrWhiteSpace(sessionId);
+        cancellationToken.ThrowIfCancellationRequested();
+        Directory.CreateDirectory(_paths.CopilotDirectory);
+
+        await using var client = CreateClient();
+        await client.StartAsync();
+        await client.DeleteSessionAsync(sessionId, cancellationToken);
     }
 
     public async Task<IReadOnlyList<SampleQuery>> GenerateSampleQueriesAsync(
@@ -754,7 +860,8 @@ public sealed class CopilotVisualizationClient :
     private static Task<CopilotSession> CreateSessionAsync(
         CopilotClient client,
         string model,
-        string systemMessage)
+        string systemMessage,
+        string? sessionId = null)
     {
         return client.CreateSessionAsync(new SessionConfig
         {
@@ -763,11 +870,52 @@ public sealed class CopilotVisualizationClient :
             EnableSessionStore = false,
             EnableSessionTelemetry = false,
             Model = model,
+            SessionId = sessionId,
             SystemMessage = new SystemMessageConfig
             {
                 Content = systemMessage,
                 Mode = SystemMessageMode.Append,
             },
         });
+    }
+
+    private static async Task<string> SendVisualizationRequestAsync(
+        CopilotSession session,
+        string prompt,
+        string model,
+        string activity,
+        IProgress<GenerationProgress>? progress,
+        CancellationToken cancellationToken)
+    {
+        progress?.Report(new GenerationProgress(
+            GenerationStage.Generating,
+            $"{activity} with {model}..."));
+
+        AssistantMessageEvent? response;
+        try
+        {
+            response = await session.SendAndWaitAsync(
+                new MessageOptions
+                {
+                    Prompt = prompt,
+                },
+                GenerationTimeout,
+                cancellationToken);
+        }
+        catch (TimeoutException exception)
+        {
+            throw new VisualizationGenerationException(
+                "Copilot did not finish the visualization within three minutes.",
+                exception);
+        }
+
+        var content = response?.Data.Content;
+        if (string.IsNullOrWhiteSpace(content))
+        {
+            throw new VisualizationGenerationException(
+                "Copilot completed the request without returning an HTML page.");
+        }
+
+        return content;
     }
 }

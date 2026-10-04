@@ -163,25 +163,158 @@ public sealed class GeneratePresentationUseCaseTests
     }
 
     [Fact]
-    public async Task ExecuteAsync_RejectsNodeDetailAboveMaximumLength()
+    public async Task ExecuteAsync_TruncatesNodeDetailAboveMaximumLength()
     {
         var plan = CreateValidPlan();
-        plan.Slides[1].Nodes[0].Detail = new string('x', 221);
+        plan.Slides[1].Nodes[0].Detail = new string(
+            'x',
+            GeneratePresentationUseCase.MaximumNodeDetailLength + 20);
+        var builder = new StubBuilder([]);
         var useCase = new GeneratePresentationUseCase(
             new StubPlanner(plan, []),
-            new StubBuilder([]),
+            builder,
             new StubAzureIconCatalog("networking/app-gateway"),
             new StubOutputThemeCatalog());
 
-        var exception = await Assert.ThrowsAsync<PresentationGenerationException>(
-            () => useCase.ExecuteAsync(
-                "Explain Azure Application Gateway",
-                CreateVisualization(),
-                new AppSettings()));
+        await useCase.ExecuteAsync(
+            "Explain Azure Application Gateway",
+            CreateVisualization(),
+            new AppSettings());
 
-        Assert.Contains(
-            "node detail exceeds 220 characters",
-            exception.Message);
+        var detail = builder.Plan!.Slides[1].Nodes[0].Detail;
+        Assert.Equal(
+            GeneratePresentationUseCase.MaximumNodeDetailLength,
+            detail.Length);
+        Assert.EndsWith("…", detail);
+    }
+
+    [Fact]
+    public async Task ExecuteAsync_TruncatesBulletAboveMaximumLength()
+    {
+        var plan = CreateValidPlan();
+        plan.Slides[^1].Bullets[0] = new string(
+            'x',
+            GeneratePresentationUseCase.MaximumBulletLength + 20);
+        var builder = new StubBuilder([]);
+        var useCase = new GeneratePresentationUseCase(
+            new StubPlanner(plan, []),
+            builder,
+            new StubAzureIconCatalog("networking/app-gateway"),
+            new StubOutputThemeCatalog());
+
+        await useCase.ExecuteAsync(
+            "Explain Azure Application Gateway",
+            CreateVisualization(),
+            new AppSettings());
+
+        var bullet = builder.Plan!.Slides[^1].Bullets[0];
+        Assert.Equal(
+            GeneratePresentationUseCase.MaximumBulletLength,
+            bullet.Length);
+        Assert.EndsWith("…", bullet);
+    }
+
+    [Fact]
+    public async Task ExecuteAsync_TruncatesEveryOverlongDisplayTextField()
+    {
+        var plan = CreateValidPlan();
+        var sourceTitle = new string(
+            'r',
+            PresentationSourcePolicy.MaximumTitleLength + 20);
+        plan.Title = new string(
+            'p',
+            GeneratePresentationUseCase.MaximumTitleLength + 20);
+        plan.Subtitle = new string(
+            'q',
+            GeneratePresentationUseCase.MaximumSubtitleLength + 20);
+        plan.Sources[0].Title = sourceTitle;
+
+        var slide = plan.Slides[0];
+        slide.SectionTitle = new string(
+            's',
+            GeneratePresentationUseCase.MaximumSectionTitleLength + 20);
+        slide.Title = new string(
+            't',
+            GeneratePresentationUseCase.MaximumTitleLength + 20);
+        slide.Subtitle = new string(
+            'u',
+            GeneratePresentationUseCase.MaximumSlideSubtitleLength + 20);
+        slide.Summary = new string(
+            'v',
+            GeneratePresentationUseCase.MaximumSummaryLength + 20);
+        slide.Callout = new string(
+            'w',
+            GeneratePresentationUseCase.MaximumCalloutLength + 20);
+        slide.Sources = [sourceTitle];
+        slide.Nodes[0].Label = new string(
+            'x',
+            GeneratePresentationUseCase.MaximumNodeLabelLength + 20);
+        slide.Nodes[0].Detail = new string(
+            'y',
+            GeneratePresentationUseCase.MaximumNodeDetailLength + 20);
+        slide.Connections[0].Label = new string(
+            'z',
+            GeneratePresentationUseCase.MaximumConnectionLabelLength + 20);
+
+        var summarySlide = plan.Slides[^1];
+        summarySlide.Bullets[0] = new string(
+            'b',
+            GeneratePresentationUseCase.MaximumBulletLength + 20);
+
+        var builder = new StubBuilder([]);
+        var useCase = new GeneratePresentationUseCase(
+            new StubPlanner(plan, []),
+            builder,
+            new StubAzureIconCatalog("networking/app-gateway"),
+            new StubOutputThemeCatalog());
+
+        await useCase.ExecuteAsync(
+            "Explain Azure Application Gateway",
+            CreateVisualization(),
+            new AppSettings());
+
+        var normalized = builder.Plan!;
+        AssertTruncated(
+            normalized.Title,
+            GeneratePresentationUseCase.MaximumTitleLength);
+        AssertTruncated(
+            normalized.Subtitle,
+            GeneratePresentationUseCase.MaximumSubtitleLength);
+        AssertTruncated(
+            normalized.Sources[0].Title,
+            PresentationSourcePolicy.MaximumTitleLength);
+
+        var normalizedSlide = normalized.Slides[0];
+        AssertTruncated(
+            normalizedSlide.SectionTitle,
+            GeneratePresentationUseCase.MaximumSectionTitleLength);
+        AssertTruncated(
+            normalizedSlide.Title,
+            GeneratePresentationUseCase.MaximumTitleLength);
+        AssertTruncated(
+            normalizedSlide.Subtitle,
+            GeneratePresentationUseCase.MaximumSlideSubtitleLength);
+        AssertTruncated(
+            normalizedSlide.Summary,
+            GeneratePresentationUseCase.MaximumSummaryLength);
+        AssertTruncated(
+            normalizedSlide.Callout,
+            GeneratePresentationUseCase.MaximumCalloutLength);
+        AssertTruncated(
+            normalizedSlide.Sources[0],
+            PresentationSourcePolicy.MaximumTitleLength);
+        AssertTruncated(
+            normalizedSlide.Nodes[0].Label,
+            GeneratePresentationUseCase.MaximumNodeLabelLength);
+        AssertTruncated(
+            normalizedSlide.Nodes[0].Detail,
+            GeneratePresentationUseCase.MaximumNodeDetailLength);
+        AssertTruncated(
+            normalizedSlide.Connections[0].Label,
+            GeneratePresentationUseCase.MaximumConnectionLabelLength);
+        AssertTruncated(
+            normalized.Slides[^1].Bullets[0],
+            GeneratePresentationUseCase.MaximumBulletLength);
     }
 
     [Fact]
@@ -627,6 +760,12 @@ public sealed class GeneratePresentationUseCaseTests
                 </html>
                 """,
         };
+    }
+
+    private static void AssertTruncated(string value, int maximumLength)
+    {
+        Assert.Equal(maximumLength, value.Length);
+        Assert.EndsWith("…", value);
     }
 
     private sealed class StubPlanner(
