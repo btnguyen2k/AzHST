@@ -32,4 +32,25 @@ public sealed record ApplicationPaths(
             Path.Combine(dataDirectory, "copilot"),
             sampleQueryDatabaseFile);
     }
+
+    public static ApplicationPaths CreatePortable()
+    {
+        return CreatePortable(AppContext.BaseDirectory);
+    }
+
+    public static ApplicationPaths CreatePortable(string applicationDirectory)
+    {
+        ArgumentException.ThrowIfNullOrWhiteSpace(applicationDirectory);
+
+        var applicationRoot = Path.TrimEndingDirectorySeparator(
+            Path.GetFullPath(applicationDirectory));
+        var dataDirectory = Path.Combine(applicationRoot, "data");
+
+        return new ApplicationPaths(
+            dataDirectory,
+            Path.Combine(dataDirectory, "settings.json"),
+            Path.Combine(applicationRoot, "generated"),
+            Path.Combine(dataDirectory, "copilot"),
+            Path.Combine(dataDirectory, "azhst.db"));
+    }
 }

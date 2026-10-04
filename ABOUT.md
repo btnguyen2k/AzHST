@@ -24,6 +24,45 @@ responses.
 
 ## Quick user guide
 
+### Quick start application
+
+Launch an extracted build normally to keep settings and project history in
+your operating system's per-user application data directory:
+
+```text
+# Windows
+.\AzHST.Desktop.exe
+
+# macOS or Linux
+./AzHST.Desktop
+```
+
+Add `--portable` to keep AzHST-owned writable data beside the executable:
+
+```text
+# Windows
+.\AzHST.Desktop.exe --portable
+
+# macOS or Linux
+./AzHST.Desktop --portable
+```
+
+When running from source, place application arguments after `--`:
+
+```text
+dotnet run --project src/AzHST.Desktop/AzHST.Desktop.csproj --configuration Release -- --portable
+```
+
+| AzHST argument | Behavior |
+|---|---|
+| `--portable` | Stores `settings.json`, `projects.db`, Copilot SDK data, and the sample-query database under `<application-directory>\data`; the default generated-output directory becomes `<application-directory>\generated`. |
+
+No other AzHST-specific command-line arguments are currently supported.
+Portable mode requires a writable extracted application directory and uses a
+separate data store; it does not automatically import data from a normal
+launch. GitHub CLI authentication remains managed by `gh` for the current
+operating-system user.
+
 1. **Sign in to GitHub.** Select **GitHub sign-in instructions**, run the
    displayed command in your terminal, complete the browser flow, and then
    select **I've signed in**:

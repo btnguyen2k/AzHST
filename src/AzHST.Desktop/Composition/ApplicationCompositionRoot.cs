@@ -9,10 +9,15 @@ namespace AzHST.Desktop.Composition;
 
 internal static class ApplicationCompositionRoot
 {
-    public static MainWindow CreateMainWindow()
+    public static MainWindow CreateMainWindow(
+        ApplicationLaunchOptions launchOptions)
     {
+        ArgumentNullException.ThrowIfNull(launchOptions);
+
         var testOptions = DebugTestOptions.FromEnvironment();
-        var paths = ApplicationPaths.CreateDefault();
+        var paths = launchOptions.UsePortableStorage
+            ? ApplicationPaths.CreatePortable()
+            : ApplicationPaths.CreateDefault();
         var settingsRepository = new JsonSettingsRepository(paths);
         var authenticationService = new GitHubCliAuthenticationService(
             testOptions.SimulateMissingGitHubCli);

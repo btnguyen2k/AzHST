@@ -5,3 +5,4 @@
 - feat(presentations): make Professional Night the default PowerPoint theme
 - feat(projects): reopen saved visualizations and improve them through contextual follow-up requests
 - feat(presentations): generate PowerPoint reliably from content-rich visualizations
+- feat(exe): add portable mode, which keeps settings and project history with extracted application files

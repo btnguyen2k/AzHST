@@ -96,7 +96,8 @@ Infrastructure implements the application ports:
 - `FileProjectArtifactStore` atomically creates or replaces UTF-8
   `index.html` under each project revision directory
 - `ExternalBrowserLauncher` delegates file URIs to the operating system
-- `ApplicationPaths` centralizes per-user storage locations
+- `ApplicationPaths` centralizes standard per-user and portable
+  executable-adjacent storage locations
 
 Query assessment remains isolated and transient. Initial page generation
 creates a named project session; follow-up refinement resumes that exact
@@ -353,18 +354,23 @@ insufficient text contrast are rejected explicitly. Definitions use
 `schemaVersion` for parser compatibility and intentionally have no theme
 version. Visualization IDs combine a padded hexadecimal Unix-millisecond
 timestamp with a sanitized slug, for example
-`0199abcdef12-azure-app-gateway`. The generated root defaults to
-`.\generated`; each ID receives its own directory with `index.html` and an
-optional `presentation.pptx`. Unsafe IDs and accidental HTML overwrites are
-rejected. PowerPoint rebuilds use an atomic temporary-file move, and
-persistence failures are surfaced in the UI rather than represented as
-success.
+`0199abcdef12-azure-app-gateway`. Standard startup stores settings, project
+history, and Copilot SDK data under `<LocalApplicationData>\AzHST`; its
+generated root defaults to `.\generated` under the working directory.
+`--portable` instead uses `<application-directory>\data` and defaults generated
+output to `<application-directory>\generated`. Each project receives its own
+revision directory with `index.html` and an optional `presentation.pptx`.
+Unsafe IDs and accidental HTML overwrites are rejected. PowerPoint rebuilds
+use an atomic temporary-file move, and persistence failures are surfaced in
+the UI rather than represented as success.
 
 Home-page sample questions use `data\azhst.db` relative to the working
-directory. The SQLite file has an AzHST application identifier and schema
-version. Startup runs `quick_check`, validates required tables and foreign
-keys, and resets corrupt, non-SQLite, or incompatible files. Fresh databases
-are seeded with six categories and ten curated questions per category.
+directory in standard mode and
+`<application-directory>\data\azhst.db` in portable mode. The SQLite file has
+an AzHST application identifier and schema version. Startup runs
+`quick_check`, validates required tables and foreign keys, and resets corrupt,
+non-SQLite, or incompatible files. Fresh databases are seeded with six
+categories and ten curated questions per category.
 
 The UI selects four categories at random and one question from each whenever
 Home is entered. Once `sample_queries_generated_utc` is seven days old,
@@ -390,7 +396,7 @@ Version one persists:
 | Setting | Default | Purpose |
 |---|---|---|
 | Copilot model | `auto` | Select the model used for assessment, visualization generation, and legacy presentation planning |
-| Output directory | `.\generated` under the working directory | Store `<id>\index.html` visualization artifacts |
+| Output directory | `.\generated` under the working directory, or `<application-directory>\generated` in portable mode | Store project revision visualization artifacts |
 | Open externally | `false` | Also launch each result in the default browser |
 | HTML theme | `azure-night` | Apply the Azure Night visual contract and authoritative CSS variables |
 | PowerPoint theme | `professional-night` | Apply the selected presentation palette; Professional Night is the default and Professional Light remains available |
