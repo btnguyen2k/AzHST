@@ -3,7 +3,7 @@ namespace AzHST.Application.Models;
 public sealed record OutputThemeSettings
 {
     public const string DefaultHtmlThemeId = "azure-night";
-    public const string DefaultPresentationThemeId = "professional-light";
+    public const string DefaultPresentationThemeId = "professional-night";
 
     public string HtmlThemeId { get; init; } = DefaultHtmlThemeId;
 

@@ -9,15 +9,21 @@ namespace AzHST.Desktop.Composition;
 
 internal static class ApplicationCompositionRoot
 {
-    public static MainWindow CreateMainWindow()
+    public static MainWindow CreateMainWindow(
+        ApplicationLaunchOptions launchOptions)
     {
+        ArgumentNullException.ThrowIfNull(launchOptions);
+
         var testOptions = DebugTestOptions.FromEnvironment();
-        var paths = ApplicationPaths.CreateDefault();
+        var paths = launchOptions.UsePortableStorage
+            ? ApplicationPaths.CreatePortable()
+            : ApplicationPaths.CreateDefault();
         var settingsRepository = new JsonSettingsRepository(paths);
         var authenticationService = new GitHubCliAuthenticationService(
             testOptions.SimulateMissingGitHubCli);
         var browser = new ExternalBrowserLauncher();
-        var artifactStore = new FileGeneratedArtifactStore(paths);
+        var projectArtifactStore = new FileProjectArtifactStore(paths);
+        var projectRepository = new SqliteProjectRepository(paths);
         var themes = FileOutputThemeCatalog.CreateDefault();
         var azureIcons = FileAzureIconCatalog.CreateDefault();
         var copilotClient = new CopilotVisualizationClient(paths, azureIcons);
@@ -26,12 +32,33 @@ internal static class ApplicationCompositionRoot
         var webViewAvailability = WebViewAvailability.Detect();
         var applicationIdentity = ApplicationIdentity.FromAssembly(
             typeof(App).Assembly);
-        var generationUseCase = new GenerateVisualizationUseCase(
+        var createProjectUseCase = new CreateProjectUseCase(
+            copilotClient,
             copilotClient,
             documentProcessor,
-            artifactStore,
+            projectArtifactStore,
+            projectRepository,
             artifactIdGenerator,
             themes);
+        var openProjectUseCase = new OpenProjectUseCase(
+            projectRepository,
+            projectArtifactStore);
+        var browseProjectsUseCase = new BrowseProjectsUseCase(
+            projectRepository);
+        var refineProjectUseCase = new RefineProjectUseCase(
+            copilotClient,
+            documentProcessor,
+            projectArtifactStore,
+            projectRepository,
+            themes);
+        var renameProjectUseCase = new RenameProjectUseCase(
+            projectRepository);
+        var deleteProjectUseCase = new DeleteProjectUseCase(
+            projectRepository,
+            projectArtifactStore,
+            copilotClient);
+        var recordProjectPresentationUseCase =
+            new RecordProjectPresentationUseCase(projectRepository);
         var sampleQueryRepository = new SqliteSampleQueryRepository(paths);
         var sampleQueryUseCase = new SampleQueryUseCase(
             sampleQueryRepository,
@@ -57,8 +84,17 @@ internal static class ApplicationCompositionRoot
             applicationIdentity,
             webViewAvailability,
             browser);
+        var projectBrowserDialogService = new ProjectBrowserDialogService(
+            () => mainWindow,
+            browseProjectsUseCase);
         var viewModel = new MainWindowViewModel(
-            generationUseCase,
+            createProjectUseCase,
+            openProjectUseCase,
+            browseProjectsUseCase,
+            refineProjectUseCase,
+            renameProjectUseCase,
+            deleteProjectUseCase,
+            recordProjectPresentationUseCase,
             presentationUseCase,
             sampleQueryUseCase,
             authenticationService,
@@ -70,6 +106,7 @@ internal static class ApplicationCompositionRoot
             settingsDialogService,
             loginDialogService,
             aboutDialogService,
+            projectBrowserDialogService,
             applicationIdentity,
             webViewAvailability,
             testOptions.SkipGitHubSignInAtStartup

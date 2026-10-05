@@ -36,7 +36,11 @@ public sealed class FileAzureIconCatalogTests : IDisposable
             item => item.Key == "networking/10076-application-gateways");
         Assert.Equal("Application Gateways", icon.DisplayName);
         Assert.Equal("networking", icon.Category);
-        Assert.True(catalog.TryGetDataUri(icon.Key, out var dataUri));
+        Assert.True(catalog.TryGet(
+            icon.Key,
+            out var resolvedDescriptor,
+            out var dataUri));
+        Assert.Equal(icon, resolvedDescriptor);
         Assert.StartsWith("data:image/svg+xml;base64,", dataUri);
         Assert.Equal(
             Encoding.UTF8.GetBytes(svg),

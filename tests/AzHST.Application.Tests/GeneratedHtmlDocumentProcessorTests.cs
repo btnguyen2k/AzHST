@@ -1,3 +1,4 @@
+using System.Diagnostics.CodeAnalysis;
 using AzHST.Application.Abstractions;
 using AzHST.Application.Exceptions;
 using AzHST.Application.Models;
@@ -230,6 +231,7 @@ public sealed class GeneratedHtmlDocumentProcessorTests
 
         Assert.Contains($"data-azure-icon-resolved=\"{key}\"", result);
         Assert.Contains($"src=\"{dataUri}\"", result);
+        Assert.Contains("alt=\"Azure Application Gateway\"", result);
         Assert.DoesNotContain("data-azure-icon=", result);
     }
 
@@ -246,19 +248,28 @@ public sealed class GeneratedHtmlDocumentProcessorTests
         Assert.Contains("unavailable Azure icon", exception.Message);
     }
 
-    [Fact]
-    public void Process_RejectsAzureIconWithoutAltText()
+    [Theory]
+    [InlineData("")]
+    [InlineData(" alt=\"\"")]
+    [InlineData(" alt=\"   \"")]
+    public void Process_RepairsMissingOrBlankAzureIconAltText(
+        string altMarkup)
     {
         const string key = "networking/10076-application-gateways";
         var processor = new GeneratedHtmlDocumentProcessor(
-            new StubAzureIconCatalog(key, "data:image/svg+xml;base64,PHN2Zy8+"));
+            new StubAzureIconCatalog(
+                key,
+                "data:image/svg+xml;base64,PHN2Zy8+",
+                "Application Gateways & WAF"));
         var response = CreateDocument(
-            bodyMarkup: $"""<img data-azure-icon="{key}">""");
+            bodyMarkup:
+                $"""<img data-azure-icon="{key}"{altMarkup}>""");
 
-        var exception = Assert.Throws<VisualizationGenerationException>(
-            () => processor.Process(response));
+        var result = processor.Process(response);
 
-        Assert.Contains("descriptive alt", exception.Message);
+        Assert.Contains(
+            "alt=\"Application Gateways &amp; WAF\"",
+            result);
     }
 
     [Fact]
@@ -498,7 +509,8 @@ public sealed class GeneratedHtmlDocumentProcessorTests
 
     private sealed class StubAzureIconCatalog(
         string? availableKey = null,
-        string? dataUri = null) : IAzureIconCatalog
+        string? dataUri = null,
+        string displayName = "Application Gateways") : IAzureIconCatalog
     {
         public IReadOnlyList<AzureIconDescriptor> FindRelevant(
             string query,
@@ -507,14 +519,22 @@ public sealed class GeneratedHtmlDocumentProcessorTests
             return [];
         }
 
-        public bool TryGetDataUri(string key, out string resolvedDataUri)
+        public bool TryGet(
+            string key,
+            [NotNullWhen(true)] out AzureIconDescriptor? descriptor,
+            out string resolvedDataUri)
         {
             if (string.Equals(key, availableKey, StringComparison.OrdinalIgnoreCase))
             {
+                descriptor = new AzureIconDescriptor(
+                    key,
+                    displayName,
+                    "Networking");
                 resolvedDataUri = dataUri ?? string.Empty;
                 return true;
             }
 
+            descriptor = null;
             resolvedDataUri = string.Empty;
             return false;
         }

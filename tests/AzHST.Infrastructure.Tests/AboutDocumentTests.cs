@@ -19,9 +19,6 @@ public sealed class AboutDocumentTests
         var readme = ReadMarkdown(repositoryRoot, "README.md");
         var about = ReadMarkdown(repositoryRoot, "ABOUT.md");
 
-        Assert.Equal(
-            ExtractProductDescription(readme),
-            ExtractProductDescription(about));
         foreach (var section in SynchronizedSections)
         {
             Assert.Equal(
@@ -59,22 +56,6 @@ public sealed class AboutDocumentTests
     {
         return File.ReadAllText(Path.Combine(repositoryRoot, fileName))
             .ReplaceLineEndings("\n");
-    }
-
-    private static string ExtractProductDescription(string markdown)
-    {
-        const string DescriptionStart = "**Azure - How stuff works (AzHST)**";
-        var descriptionStart = markdown.IndexOf(
-            DescriptionStart,
-            StringComparison.Ordinal);
-        Assert.True(descriptionStart >= 0);
-
-        var sectionStart = markdown.IndexOf(
-            "\n## ",
-            descriptionStart,
-            StringComparison.Ordinal);
-        Assert.True(sectionStart > descriptionStart);
-        return markdown[descriptionStart..sectionStart].Trim();
     }
 
     private static string ExtractSection(

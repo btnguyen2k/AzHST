@@ -1,3 +1,10 @@
 # This file has been cleaned up post-releasing version 0.1.0.
 # Generate its content quickly using the following command:
 #   git log origin..HEAD | grep "^\s" > .semrelease/this_release
+#!VERSION=0.2.0
+- feat(presentations): make Professional Night the default PowerPoint theme
+- feat(projects): reopen saved visualizations and improve them through contextual follow-up requests
+- feat(presentations): generate PowerPoint reliably from content-rich visualizations
+- feat(exe): add portable mode, which keeps settings and project history with extracted application files
+- feat(ui): load a fresh set of sample questions on demand
+- patch(visualizations): recover missing Azure icon labels from trusted catalog metadata

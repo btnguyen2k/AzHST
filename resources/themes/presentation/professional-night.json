@@ -1,0 +1,41 @@
+{
+  "schemaVersion": 1,
+  "id": "professional-night",
+  "displayName": "Professional Night",
+  "palette": {
+    "canvas": "#081426",
+    "surface": "#10233F",
+    "summarySurface": "#132E50",
+    "title": "#F8FAFC",
+    "text": "#E5EDF8",
+    "textMuted": "#A9BAD0",
+    "border": "#2C4A6D",
+    "primary": "#4EA8FF",
+    "accent": "#22D3EE",
+    "iconTile": "#F3F8FF",
+    "success": "#34D399",
+    "warning": "#FBBF24",
+    "comparison": "#A78BFA",
+    "danger": "#FB7185",
+    "hyperlink": "#67C7FF",
+    "followedHyperlink": "#C4B5FD"
+  },
+  "typography": {
+    "fontFamily": "Aptos",
+    "displayFontFamily": "Aptos Display",
+    "titleSizePoints": 32,
+    "subtitleSizePoints": 17,
+    "slideTitleSizePoints": 20,
+    "summarySizePoints": 15,
+    "bodySizePoints": 16,
+    "nodeLabelSizePoints": 12,
+    "nodeDetailSizePoints": 10,
+    "connectionLabelSizePoints": 8,
+    "footerSizePoints": 7
+  },
+  "appearance": {
+    "roundedCards": true,
+    "showHeaderRule": true,
+    "iconTreatment": "lightTile"
+  }
+}

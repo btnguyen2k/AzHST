@@ -1,3 +1,4 @@
+using System.Diagnostics.CodeAnalysis;
 using System.Text;
 using System.Text.RegularExpressions;
 using AzHST.Application.Abstractions;
@@ -144,16 +145,26 @@ public sealed partial class FileAzureIconCatalog : IAzureIconCatalog
             .ToArray();
     }
 
-    public bool TryGetDataUri(string key, out string dataUri)
+    public bool TryGet(
+        string key,
+        [NotNullWhen(true)] out AzureIconDescriptor? descriptor,
+        out string dataUri)
     {
         if (_iconsByKey.TryGetValue(key, out var icon))
         {
+            descriptor = icon.Descriptor;
             dataUri = icon.DataUri;
             return true;
         }
 
+        descriptor = null;
         dataUri = string.Empty;
         return false;
+    }
+
+    public bool TryGetDataUri(string key, out string dataUri)
+    {
+        return TryGet(key, out _, out dataUri);
     }
 
     private static IconEntry CreateEntry(string rootDirectory, string path)

@@ -2,22 +2,31 @@
 
 ## Goals and first-version scope
 
-AzHST answers Azure and Microsoft services questions with a visual artifact rather than a long chat response. The first version implements one complete request path:
+AzHST answers Azure and Microsoft services questions with a visual artifact
+rather than a long chat response. The current version implements one complete
+project workflow:
 
 1. Check GitHub CLI authentication.
-2. Accept a question and local configuration.
-3. Ask GitHub Copilot to classify Azure relevance and visual suitability.
-4. Reject invalid requests with actionable guidance.
-5. Generate a timestamp-and-slug visualization ID.
+2. Load local project history and configuration.
+3. Accept a new Azure question.
+4. Ask GitHub Copilot to classify Azure relevance and visual suitability in a
+   transient session.
+5. Create a project ID and an explicit persistent Copilot session ID.
 6. Ask GitHub Copilot for one self-contained interactive HTML document.
 7. Validate and constrain the generated document.
-8. Save it as `generated\<id>\index.html`.
-9. Preview it in Avalonia's native WebView and optionally open it externally.
-10. Optionally extract a bounded structural outline from the secured HTML,
-    generate a visual-first slide plan that follows it, and build
-    `presentation.pptx` beside the HTML artifact.
+8. Save revision `000` as
+   `generated\<project-id>\000\index.html`.
+9. Persist project metadata, theme/model choices, paths, and the Copilot
+   session ID in `projects.db`.
+10. Preview the result, reopen it later, or submit follow-up requests that
+    resume the same Copilot conversation and atomically replace revision `000`.
+11. Optionally generate `presentation.pptx` beside the current HTML file.
 
-The design keeps model orchestration, operating-system integration, and UI concerns replaceable. The current implementation intentionally does not include conversation persistence, prompt history, Azure API access, retrieval-augmented generation, custom Copilot tools, or deployment packaging.
+The design keeps model orchestration, operating-system integration, and UI
+concerns replaceable. It intentionally does not include Azure API access,
+retrieval-augmented generation, custom Copilot tools, or immutable revision
+history. Revision IDs remain in contracts and storage keys so later versions
+can add history without changing the current project boundary.
 
 Application startup also validates a local SQLite sample-query catalog. The
 home page reads four randomized suggestions from distinct categories. A
@@ -32,12 +41,17 @@ flowchart LR
     Desktop --> GH[GitHub CLI]
     Desktop --> SDK[GitHub Copilot SDK]
     SDK --> Service[GitHub Copilot service]
-    Desktop --> Files[Local settings and HTML files]
+    Desktop --> Files[Local settings, projects.db, HTML, and PPTX files]
     Desktop --> WebView[Native WebView]
     Desktop --> Browser[Default browser]
 ```
 
-The Copilot SDK launches its bundled runtime and communicates with it over JSON-RPC. AzHST uses `CopilotClientMode.Empty`, an explicit empty tool allowlist, no session store, and no host filesystem tools. Copilot returns text to the application; it never writes the generated page directly.
+The Copilot SDK launches its bundled runtime and communicates with it over
+JSON-RPC. AzHST uses `CopilotClientMode.Empty`, an explicit empty tool
+allowlist, no host filesystem tools, and disables the SDK's shared
+cross-session search store. Each project instead owns one explicit SDK session
+ID that AzHST creates and resumes directly. Copilot returns text to the
+application; it never writes generated files itself.
 
 ## Solution boundaries
 
@@ -45,9 +59,14 @@ The Copilot SDK launches its bundled runtime and communicates with it over JSON-
 
 The dependency-free application layer contains:
 
-- request and result models
+- project, revision, request, and artifact models
 - ports for Copilot, authentication, settings, file output, and browser launch
-- `GenerateVisualizationUseCase`, which coordinates one request
+- `CreateProjectUseCase`, which assesses a question, starts a persistent
+  conversation, secures its HTML, and persists revision `000`
+- project list, open, refine, rename, delete, and presentation-association use
+  cases
+- `IProjectRepository`, `IProjectArtifactStore`, and
+  `ICopilotProjectConversation` ports
 - `VisualizationArtifactIdGenerator`, which creates timestamp-and-slug IDs
 - `GeneratedHtmlDocumentProcessor`, which extracts and secures model output
 - `IAzureIconCatalog`, which exposes approved icon metadata and data URIs
@@ -63,7 +82,8 @@ This layer can be tested without Avalonia, GitHub Copilot, GitHub CLI, or a file
 
 Infrastructure implements the application ports:
 
-- `CopilotVisualizationClient` owns the Copilot client and session lifecycle
+- `CopilotVisualizationClient` owns transient assessment/planning sessions and
+  explicit persistent project sessions
 - `FileAzureIconCatalog` validates bundled SVGs, ranks query-relevant icons, and preserves their original bytes as data URIs
 - `FileOutputThemeCatalog` strictly loads and validates bundled HTML and presentation theme JSON
 - `HtmlPresentationOutlineBuilder` parses secured HTML into a bounded, ordered set of visible headings, labels, table rows, controls, and diagram text for presentation planning
@@ -71,11 +91,19 @@ Infrastructure implements the application ports:
 - `GitHubCliAuthenticationService` performs a non-interactive `gh` account check
 - `JsonSettingsRepository` performs atomic JSON settings writes
 - `SqliteSampleQueryRepository` validates or resets `data\azhst.db`, then performs transactional sample-query replacement and random selection
-- `FileGeneratedArtifactStore` atomically writes UTF-8 `index.html` files inside per-artifact directories
+- `SqliteProjectRepository` validates the non-resettable per-user
+  `projects.db`, transactionally stores projects with revision `000`, and
+  pages lightweight searchable project summaries
+- `FileProjectArtifactStore` atomically creates or replaces UTF-8
+  `index.html` under each project revision directory
 - `ExternalBrowserLauncher` delegates file URIs to the operating system
-- `ApplicationPaths` centralizes per-user storage locations
+- `ApplicationPaths` centralizes standard per-user and portable
+  executable-adjacent storage locations
 
-Assessment and page generation currently use separate isolated Copilot sessions. This keeps lifecycle and failure isolation simple for version one; a future multi-turn workflow can reuse one client connection without changing the application use case.
+Query assessment remains isolated and transient. Initial page generation
+creates a named project session; follow-up refinement resumes that exact
+session. PowerPoint planning remains transient and derives from the current
+secured HTML.
 
 ### `AzHST.Desktop`
 
@@ -83,9 +111,12 @@ The Avalonia project is the composition root and presentation layer:
 
 - `App` and `ApplicationCompositionRoot` construct concrete services
 - view models expose state and asynchronous commands
-- views define the desktop shell and tabbed settings/about dialogs
+- views define the desktop shell and settings, about, and project-browser
+  dialogs
 - `SettingsDialogService` contains window-specific dialog behavior
-- `AboutDialogService` reads the Desktop assembly's embedded README and release
+- `ProjectBrowserDialogService` presents a paged, searchable, virtualized
+  history while the sidebar stays bounded to recent and active projects
+- `AboutDialogService` reads the Desktop assembly's embedded ABOUT document and release
   notes, then supplies their runtime-rendered HTML to the About window
 
 No service locator or static global container is used. Constructor dependencies keep ownership explicit.
@@ -96,38 +127,54 @@ No service locator or static global container is used. Constructor dependencies 
 sequenceDiagram
     actor User
     participant VM as MainWindowViewModel
-    participant UC as GenerateVisualizationUseCase
+    participant Create as CreateProjectUseCase
+    participant Refine as RefineProjectUseCase
     participant PUC as GeneratePresentationUseCase
     participant Copilot as CopilotVisualizationClient
     participant Themes as Output theme catalog
     participant Icons as Azure icon catalog
     participant Policy as GeneratedHtmlDocumentProcessor
     participant PPTX as OpenXmlPresentationBuilder
-    participant Store as FileGeneratedArtifactStore
+    participant Store as FileProjectArtifactStore
+    participant Repo as SqliteProjectRepository
     participant View as NativeWebView / Browser
 
-    User->>VM: Submit question
-    VM->>UC: Execute(question, settings)
-    UC->>Copilot: AssessQuery(question, model)
-    Copilot-->>UC: Validity, message, suggested slug
+    User->>VM: Create project from question
+    VM->>Create: Execute(question, settings)
+    Create->>Copilot: AssessQuery(question, model)
+    Copilot-->>Create: Validity, message, suggested slug
     alt Invalid request
-        UC-->>VM: Actionable validation message
+        Create-->>VM: Actionable validation message
     else Valid request
-        UC->>UC: Create hex timestamp + slug ID
-        UC->>Themes: Resolve selected HTML theme
-        Themes-->>UC: Typed HTML theme
-        UC->>Copilot: GenerateHtml(question, model, ID, theme)
+        Create->>Create: Create project and session IDs
+        Create->>Themes: Resolve selected HTML theme
+        Themes-->>Create: Typed HTML theme
+        Create->>Copilot: Create explicit project session
         Copilot->>Icons: Find relevant approved icon keys
         Icons-->>Copilot: Small labeled catalog
-        Copilot-->>UC: HTML document with optional icon placeholders
-        UC->>Policy: Extract, theme, and secure HTML
+        Copilot-->>Create: Complete HTML document
+        Create->>Policy: Extract, theme, and secure HTML
         Policy->>Icons: Resolve approved placeholders
         Icons-->>Policy: Original SVG data URIs
-        Policy-->>UC: Constrained document
-        UC->>Store: Save ID/index.html
-        Store-->>UC: ID, directory, file path, and URI
-        UC-->>VM: Visualization artifact
+        Policy-->>Create: Constrained document
+        Create->>Store: Create project/000/index.html
+        Store-->>Create: File path and URI
+        Create->>Repo: Save project and revision 000
+        Create-->>VM: Project workspace
         VM->>View: Navigate and/or open
+        opt Refine current project
+            User->>VM: Submit follow-up request
+            VM->>Refine: Execute(project ID, follow-up, settings)
+            Refine->>Repo: Load project and session ID
+            Refine->>Copilot: Resume session and request full replacement HTML
+            Copilot-->>Refine: Complete updated HTML document
+            Refine->>Policy: Validate and secure before replacement
+            Policy-->>Refine: Constrained document
+            Refine->>Store: Atomically replace revision 000
+            Refine->>Repo: Save model/theme choices; clear PPTX association
+            Refine-->>VM: Updated project workspace
+            VM->>View: Refresh preview
+        end
         opt Build PowerPoint
             VM->>PUC: Execute(question, visualization, settings)
             PUC->>Copilot: CreatePresentationPlan(question, visualization)
@@ -138,12 +185,17 @@ sequenceDiagram
             PUC->>PPTX: Build validated plan with theme
             PPTX-->>PUC: presentation.pptx artifact
             PUC-->>VM: PowerPoint artifact
+            VM->>Repo: Associate presentation with revision 000
             VM->>View: Show path; copy, reveal, or open presentation
         end
     end
 ```
 
-Progress messages cross the application boundary through `IProgress<GenerationProgress>`. Cancellation is passed into the Copilot request and file write.
+Progress messages cross the application boundary through
+`IProgress<GenerationProgress>`. Cancellation is passed into Copilot,
+database, and file operations. A follow-up document is fully secured before
+the current HTML is replaced. If database persistence fails after replacement,
+the previous HTML is restored.
 
 ## Trust boundaries and safety decisions
 
@@ -157,7 +209,8 @@ Generated HTML is treated as untrusted input. The document processor:
 - requires non-empty inline JavaScript and at least one semantic interactive control
 - requires CSS or JavaScript motion plus a `prefers-reduced-motion: reduce` fallback
 - accepts Azure icons only through known `<img data-azure-icon="...">` catalog keys
-- requires descriptive icon alt text and rejects model-supplied icon sources
+- preserves descriptive icon alt text, repairs missing or blank values from
+  trusted catalog metadata, and rejects model-supplied icon sources
 - replaces each approved placeholder with the original SVG bytes as a base64 `data:` image
 - removes model-provided theme markers and injects authoritative CSS variables for the selected HTML theme
 - rejects external or active `src` schemes and all external links except
@@ -185,10 +238,12 @@ filesystem path.
 The generated document uses an `<img data-azure-icon="key" alt="...">`
 placeholder. The application resolves it to a base64 `data:image/svg+xml`
 source, preserving the original file bytes and keeping `index.html`
-self-contained. The prompt requires a nearby product name and prohibits
-cropping, flipping, rotation, recoloring, distortion, or use as AzHST
-branding. Microsoft permits these icons in architecture diagrams, training
-materials, and documentation under the current
+self-contained. Explicit non-empty alt text is preserved; a missing, empty, or
+whitespace-only value is replaced with the approved icon's canonical display
+name. The prompt still requests descriptive alt text and a nearby product name,
+and prohibits cropping, flipping, rotation, recoloring, distortion, or use as
+AzHST branding. Microsoft permits these icons in architecture diagrams,
+training materials, and documentation under the current
 [Azure Architecture Icons terms](https://learn.microsoft.com/azure/architecture/icons/).
 
 ### PowerPoint output
@@ -229,6 +284,13 @@ numbered focused state slides. Visual slides use node details instead of
 bullets. Diagrams require directional connections; comparison and card slides
 prohibit them.
 
+All bounded model-generated display text is normalized for reliable layout.
+Overlong titles, subtitles, summaries, callouts, bullets, source titles, node
+labels/details, and connection labels are shortened at a safe word boundary
+with an ellipsis rather than failing an otherwise valid presentation plan.
+Required values and structural contracts such as IDs, counts, relationships,
+icons, and approved source URLs remain strict.
+
 `OpenXmlPresentationBuilder` then creates a 16:9 deck with:
 
 - an AzHST title slide
@@ -257,14 +319,13 @@ editable.
 
 The builder validates the completed package against the Office 2019 Open XML
 schema before atomically replacing
-`generated\<id>\presentation.pptx`. The deck contains no macros, external
+`generated\<project-id>\000\presentation.pptx`. The deck contains no macros, external
 relationships, model-provided XML, or remote resources. Rebuilding replaces
 the existing deck and reports file-lock or persistence failures to the UI.
 Presentation output uses its independently selected, validated theme. The
-default is a professional light theme optimized for projection, printing, and
-document sharing. Theme JSON supplies typed palette, typography, and
-appearance values; slide geometry and PresentationML remain deterministic
-application code.
+default is Professional Night, with Professional Light remaining available.
+Theme JSON supplies typed palette, typography, and appearance values; slide
+geometry and PresentationML remain deterministic application code.
 
 ### Agent capabilities
 
@@ -278,11 +339,12 @@ resource streams at runtime and uses Markdig to build standalone HTML.
 Model-generated content is not involved.
 
 Raw Markdown HTML is disabled. The generated document adds a CSP that blocks
-scripts, network connections, forms, frames, objects, and external images.
-The About WebView may navigate only to its in-memory document; HTTP and HTTPS
-links are intercepted and delegated to the default browser. If no embedded
-WebView adapter is available, the same embedded Markdown is shown as
-selectable text.
+scripts, network connections, forms, frames, and objects. Images are limited
+to embedded `data:` sources and HTTPS badges from `img.shields.io`; other
+remote image hosts remain blocked. The About WebView may navigate only to its
+in-memory document; HTTP and HTTPS links are intercepted and delegated to the
+default browser. If no embedded WebView adapter is available, the same
+embedded Markdown is shown as selectable text.
 
 ### Authentication
 
@@ -300,18 +362,23 @@ insufficient text contrast are rejected explicitly. Definitions use
 `schemaVersion` for parser compatibility and intentionally have no theme
 version. Visualization IDs combine a padded hexadecimal Unix-millisecond
 timestamp with a sanitized slug, for example
-`0199abcdef12-azure-app-gateway`. The generated root defaults to
-`.\generated`; each ID receives its own directory with `index.html` and an
-optional `presentation.pptx`. Unsafe IDs and accidental HTML overwrites are
-rejected. PowerPoint rebuilds use an atomic temporary-file move, and
-persistence failures are surfaced in the UI rather than represented as
-success.
+`0199abcdef12-azure-app-gateway`. Standard startup stores settings, project
+history, and Copilot SDK data under `<LocalApplicationData>\AzHST`; its
+generated root defaults to `.\generated` under the working directory.
+`--portable` instead uses `<application-directory>\data` and defaults generated
+output to `<application-directory>\generated`. Each project receives its own
+revision directory with `index.html` and an optional `presentation.pptx`.
+Unsafe IDs and accidental HTML overwrites are rejected. PowerPoint rebuilds
+use an atomic temporary-file move, and persistence failures are surfaced in
+the UI rather than represented as success.
 
 Home-page sample questions use `data\azhst.db` relative to the working
-directory. The SQLite file has an AzHST application identifier and schema
-version. Startup runs `quick_check`, validates required tables and foreign
-keys, and resets corrupt, non-SQLite, or incompatible files. Fresh databases
-are seeded with six categories and ten curated questions per category.
+directory in standard mode and
+`<application-directory>\data\azhst.db` in portable mode. The SQLite file has
+an AzHST application identifier and schema version. Startup runs
+`quick_check`, validates required tables and foreign keys, and resets corrupt,
+non-SQLite, or incompatible files. Fresh databases are seeded with six
+categories and ten curated questions per category.
 
 The UI selects four categories at random and one question from each whenever
 Home is entered. Once `sample_queries_generated_utc` is seven days old,
@@ -337,10 +404,10 @@ Version one persists:
 | Setting | Default | Purpose |
 |---|---|---|
 | Copilot model | `auto` | Select the model used for assessment, visualization generation, and legacy presentation planning |
-| Output directory | `.\generated` under the working directory | Store `<id>\index.html` visualization artifacts |
+| Output directory | `.\generated` under the working directory, or `<application-directory>\generated` in portable mode | Store project revision visualization artifacts |
 | Open externally | `false` | Also launch each result in the default browser |
 | HTML theme | `azure-night` | Apply the Azure Night visual contract and authoritative CSS variables |
-| PowerPoint theme | `professional-light` | Apply the Professional Light palette, typography, and appearance |
+| PowerPoint theme | `professional-night` | Apply the selected presentation palette; Professional Night is the default and Professional Light remains available |
 
 The Settings dialog asks `ICopilotModelCatalog` for the models available to the
 signed-in account and persists the selected ID. `auto` remains the backward-

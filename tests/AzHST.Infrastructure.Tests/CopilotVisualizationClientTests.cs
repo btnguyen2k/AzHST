@@ -1,3 +1,4 @@
+using System.Diagnostics.CodeAnalysis;
 using AzHST.Application.Abstractions;
 using AzHST.Application.Models;
 
@@ -94,8 +95,12 @@ public sealed class CopilotVisualizationClientTests
             return [];
         }
 
-        public bool TryGetDataUri(string key, out string dataUri)
+        public bool TryGet(
+            string key,
+            [NotNullWhen(true)] out AzureIconDescriptor? descriptor,
+            out string dataUri)
         {
+            descriptor = null;
             dataUri = string.Empty;
             return false;
         }

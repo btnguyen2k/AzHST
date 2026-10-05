@@ -1,3 +1,4 @@
+using System.Diagnostics.CodeAnalysis;
 using System.Globalization;
 using System.Net;
 using System.Text.RegularExpressions;
@@ -268,29 +269,62 @@ public sealed partial class GeneratedHtmlDocumentProcessor
                 "Azure icon placeholders must not provide their own image source.");
         }
 
-        var alt = AltAttributeRegex().Match(match.Value);
-        if (!alt.Success
-            || string.IsNullOrWhiteSpace(
-                WebUtility.HtmlDecode(alt.Groups["value"].Value)))
-        {
-            throw new VisualizationGenerationException(
-                "Every Azure icon must include a descriptive alt attribute.");
-        }
-
         var key = match.Groups["key"].Value;
-        if (!_azureIcons.TryGetDataUri(key, out var dataUri))
+        if (!_azureIcons.TryGet(key, out var descriptor, out var dataUri))
         {
             throw new VisualizationGenerationException(
                 $"Copilot requested the unavailable Azure icon '{key}'. Try generating the visualization again.");
         }
 
+        var alt = AltAttributeRegex().Match(match.Value);
         var iconAttribute = match.Groups["iconAttribute"];
         var relativeIndex = iconAttribute.Index - match.Index;
         var replacement =
             $"data-azure-icon-resolved=\"{key}\" src=\"{dataUri}\"";
-
-        return match.Value.Remove(relativeIndex, iconAttribute.Length)
+        var resolved = match.Value.Remove(relativeIndex, iconAttribute.Length)
             .Insert(relativeIndex, replacement);
+
+        if (alt.Success
+            && !string.IsNullOrWhiteSpace(
+                WebUtility.HtmlDecode(alt.Groups["value"].Value)))
+        {
+            return resolved;
+        }
+
+        return AddOrReplaceAzureIconAltText(
+            resolved,
+            alt.Success,
+            descriptor.DisplayName);
+    }
+
+    private static string AddOrReplaceAzureIconAltText(
+        string imageElement,
+        bool hasAltAttribute,
+        string displayName)
+    {
+        var accessibleName = string.IsNullOrWhiteSpace(displayName)
+            ? "Azure service"
+            : displayName.Trim();
+        var replacement =
+            $"alt=\"{WebUtility.HtmlEncode(accessibleName)}\"";
+
+        if (hasAltAttribute)
+        {
+            return AltAttributeRegex().Replace(
+                imageElement,
+                _ => replacement,
+                count: 1);
+        }
+
+        var closingIndex = imageElement.LastIndexOf(
+            "/>",
+            StringComparison.Ordinal);
+        if (closingIndex < 0)
+        {
+            closingIndex = imageElement.LastIndexOf('>');
+        }
+
+        return imageElement.Insert(closingIndex, $" {replacement}");
     }
 
     private static string ExtractHtml(string response)
@@ -565,8 +599,12 @@ public sealed partial class GeneratedHtmlDocumentProcessor
             return [];
         }
 
-        public bool TryGetDataUri(string key, out string dataUri)
+        public bool TryGet(
+            string key,
+            [NotNullWhen(true)] out AzureIconDescriptor? descriptor,
+            out string dataUri)
         {
+            descriptor = null;
             dataUri = string.Empty;
             return false;
         }
