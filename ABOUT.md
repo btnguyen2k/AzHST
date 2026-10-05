@@ -1,5 +1,3 @@
-# AzHST
-
 **Azure - How stuff works (AzHST)** turns questions about Azure and Microsoft cloud services into clear,
 interactive visual explanations. It helps people understand services, compare
 options, and communicate cloud designs without working through long AI
