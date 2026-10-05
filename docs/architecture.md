@@ -205,7 +205,8 @@ Generated HTML is treated as untrusted input. The document processor:
 - requires non-empty inline JavaScript and at least one semantic interactive control
 - requires CSS or JavaScript motion plus a `prefers-reduced-motion: reduce` fallback
 - accepts Azure icons only through known `<img data-azure-icon="...">` catalog keys
-- requires descriptive icon alt text and rejects model-supplied icon sources
+- preserves descriptive icon alt text, repairs missing or blank values from
+  trusted catalog metadata, and rejects model-supplied icon sources
 - replaces each approved placeholder with the original SVG bytes as a base64 `data:` image
 - removes model-provided theme markers and injects authoritative CSS variables for the selected HTML theme
 - rejects external or active `src` schemes and all external links except
@@ -233,10 +234,12 @@ filesystem path.
 The generated document uses an `<img data-azure-icon="key" alt="...">`
 placeholder. The application resolves it to a base64 `data:image/svg+xml`
 source, preserving the original file bytes and keeping `index.html`
-self-contained. The prompt requires a nearby product name and prohibits
-cropping, flipping, rotation, recoloring, distortion, or use as AzHST
-branding. Microsoft permits these icons in architecture diagrams, training
-materials, and documentation under the current
+self-contained. Explicit non-empty alt text is preserved; a missing, empty, or
+whitespace-only value is replaced with the approved icon's canonical display
+name. The prompt still requests descriptive alt text and a nearby product name,
+and prohibits cropping, flipping, rotation, recoloring, distortion, or use as
+AzHST branding. Microsoft permits these icons in architecture diagrams,
+training materials, and documentation under the current
 [Azure Architecture Icons terms](https://learn.microsoft.com/azure/architecture/icons/).
 
 ### PowerPoint output

@@ -1,3 +1,4 @@
+using System.Diagnostics.CodeAnalysis;
 using AzHST.Application.Abstractions;
 using AzHST.Application.Exceptions;
 using AzHST.Application.Models;
@@ -888,14 +889,22 @@ public sealed class GeneratePresentationUseCaseTests
             return [];
         }
 
-        public bool TryGetDataUri(string key, out string dataUri)
+        public bool TryGet(
+            string key,
+            [NotNullWhen(true)] out AzureIconDescriptor? descriptor,
+            out string dataUri)
         {
             if (string.Equals(key, availableKey, StringComparison.Ordinal))
             {
+                descriptor = new AzureIconDescriptor(
+                    key,
+                    "Available icon",
+                    "Tests");
                 dataUri = "data:image/svg+xml;base64,PHN2Zy8+";
                 return true;
             }
 
+            descriptor = null;
             dataUri = string.Empty;
             return false;
         }
