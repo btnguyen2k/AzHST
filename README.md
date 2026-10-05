@@ -149,18 +149,6 @@ operating-system user.
 Project history is stored locally. Generated pages and presentations remain
 in the configured output directory.
 
-## Azure icon usage
-
-AzHST includes official Azure architecture icons from the
-[Azure Architecture Center](https://learn.microsoft.com/azure/architecture/icons/).
-The icons are used only in generated architecture diagrams, technical
-explanations, training material, and documentation.
-
-AzHST preserves the original icon artwork and follows Microsoft's published
-usage guidance: icons are not cropped, flipped, rotated, recolored, distorted,
-or used to represent AzHST or non-Microsoft products. See the
-[Azure icon source and usage summary](https://github.com/btnguyen2k/AzHST/blob/main/resources/azure-icons/README.md).
-
 ## Disclaimer
 
 AzHST is an independent open-source project. It is not affiliated with,
@@ -173,6 +161,18 @@ Generated content may be incomplete, inaccurate, or outdated. Always validate
 architecture decisions, security controls, pricing, quotas, regional
 availability, and service limits against current official documentation before
 using the guidance in production.
+
+### Azure icon usage
+
+AzHST includes official Azure architecture icons from the
+[Azure Architecture Center](https://learn.microsoft.com/azure/architecture/icons/).
+The icons are used only in generated architecture diagrams, technical
+explanations, training material, and documentation.
+
+AzHST preserves the original icon artwork and follows Microsoft's published
+usage guidance: icons are not cropped, flipped, rotated, recolored, distorted,
+or used to represent AzHST or non-Microsoft products. See the
+[Azure icon source and usage summary](https://github.com/btnguyen2k/AzHST/blob/main/resources/azure-icons/README.md).
 
 ## Reporting bugs
 
