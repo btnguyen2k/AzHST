@@ -7,6 +7,7 @@ responses.
 
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
 [![Release](https://img.shields.io/github/release/btnguyen2k/AzHST.svg?style=flat-square)](https://github.com/btnguyen2k/AzHST/releases)
+[![GitHub repository](https://img.shields.io/badge/GitHub-Repo-181717?logo=github&style=flat-square)](https://github.com/btnguyen2k/AzHST)
 
 
 ## Highlights
