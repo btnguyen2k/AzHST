@@ -1,0 +1,213 @@
+<Window
+    x:Class="AzHST.Desktop.Views.ProjectBrowserWindow"
+    xmlns="https://github.com/avaloniaui"
+    xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+    xmlns:vm="using:AzHST.Desktop.ViewModels"
+    x:DataType="vm:ProjectBrowserViewModel"
+    Title="Browse AzHST projects"
+    Width="760"
+    Height="650"
+    MinWidth="600"
+    MinHeight="480"
+    Icon="/Assets/azhst-icon.ico"
+    Background="#0E162A"
+    WindowStartupLocation="CenterOwner">
+
+  <Window.Styles>
+    <Style Selector="Button">
+      <Setter Property="MinHeight" Value="40" />
+      <Setter Property="Padding" Value="16,8" />
+      <Setter Property="CornerRadius" Value="8" />
+      <Setter Property="FontWeight" Value="SemiBold" />
+    </Style>
+    <Style Selector="Button.primary">
+      <Setter Property="Background" Value="#2563EB" />
+      <Setter Property="Foreground" Value="White" />
+    </Style>
+    <Style Selector="Button.secondary">
+      <Setter Property="Background" Value="#17213B" />
+      <Setter Property="Foreground" Value="#DCE7FF" />
+      <Setter Property="BorderBrush" Value="#2B3A61" />
+      <Setter Property="BorderThickness" Value="1" />
+    </Style>
+    <Style Selector="ListBoxItem">
+      <Setter Property="HorizontalContentAlignment" Value="Stretch" />
+      <Setter Property="Margin" Value="0,0,0,8" />
+      <Setter Property="Padding" Value="0" />
+    </Style>
+  </Window.Styles>
+
+  <Grid Margin="28" RowDefinitions="Auto,Auto,*,Auto,Auto">
+    <StackPanel Spacing="6">
+      <TextBlock
+          FontSize="24"
+          FontWeight="Bold"
+          Foreground="#F5F8FF"
+          Text="Browse projects" />
+      <TextBlock
+          Foreground="#8FA4CB"
+          Text="Search project titles or original questions, then reopen a saved visualization."
+          TextWrapping="Wrap" />
+    </StackPanel>
+
+    <Grid
+        Grid.Row="1"
+        Margin="0,22,0,16"
+        ColumnDefinitions="*,Auto">
+      <TextBox
+          MaxLength="200"
+          AutomationProperties.Name="Search projects"
+          KeyDown="Search_KeyDown"
+          PlaceholderText="Search projects..."
+          Text="{Binding SearchText, Mode=TwoWay}" />
+      <Button
+          Grid.Column="1"
+          MinWidth="110"
+          Margin="10,0,0,0"
+          AutomationProperties.Name="Search projects"
+          Classes="secondary"
+          Command="{Binding SearchCommand}">
+        <StackPanel Orientation="Horizontal" Spacing="8">
+          <PathIcon
+              Width="16"
+              Height="16"
+              Data="{StaticResource SearchIcon}" />
+          <TextBlock VerticalAlignment="Center" Text="Search" />
+        </StackPanel>
+      </Button>
+    </Grid>
+
+    <Grid Grid.Row="2">
+      <ListBox
+          Name="ProjectsList"
+          AutomationProperties.Name="Projects"
+          DoubleTapped="Projects_DoubleTapped"
+          IsVisible="{Binding HasProjects}"
+          ItemsSource="{Binding Projects}"
+          SelectedItem="{Binding SelectedProject, Mode=TwoWay}">
+        <ListBox.ItemsPanel>
+          <ItemsPanelTemplate>
+            <VirtualizingStackPanel />
+          </ItemsPanelTemplate>
+        </ListBox.ItemsPanel>
+        <ListBox.ItemTemplate>
+          <DataTemplate x:DataType="vm:ProjectBrowserItemViewModel">
+            <Border
+                MinHeight="88"
+                Padding="14,11">
+              <Grid ColumnDefinitions="4,*,Auto">
+                <Border
+                    Width="4"
+                    Background="#60A5FA"
+                    CornerRadius="2"
+                    IsVisible="{Binding IsActive}" />
+                <StackPanel
+                    Grid.Column="1"
+                    Margin="11,0"
+                    Spacing="4">
+                  <TextBlock
+                      FontWeight="SemiBold"
+                      Foreground="#F5F8FF"
+                      Text="{Binding Title}"
+                      TextTrimming="CharacterEllipsis" />
+                  <TextBlock
+                      MaxLines="2"
+                      FontSize="12"
+                      Foreground="#9DB0D1"
+                      Text="{Binding QueryPreview}"
+                      TextTrimming="CharacterEllipsis"
+                      TextWrapping="Wrap" />
+                  <TextBlock
+                      FontSize="10"
+                      Foreground="#7186AD"
+                      Text="{Binding UpdatedText}" />
+                </StackPanel>
+                <Border
+                    Grid.Column="2"
+                    Padding="8,4"
+                    VerticalAlignment="Center"
+                    Background="#173B67"
+                    CornerRadius="6"
+                    IsVisible="{Binding IsActive}">
+                  <TextBlock
+                      FontSize="10"
+                      FontWeight="Bold"
+                      Foreground="#93C5FD"
+                      Text="ACTIVE" />
+                </Border>
+              </Grid>
+            </Border>
+          </DataTemplate>
+        </ListBox.ItemTemplate>
+      </ListBox>
+
+      <Border
+          Padding="24"
+          Background="#10182C"
+          BorderBrush="#253454"
+          BorderThickness="1"
+          CornerRadius="10"
+          IsVisible="{Binding HasNoProjects}">
+        <TextBlock
+            HorizontalAlignment="Center"
+            VerticalAlignment="Center"
+            Foreground="#8FA4CB"
+            Text="{Binding StatusMessage}"
+            TextAlignment="Center"
+            TextWrapping="Wrap" />
+      </Border>
+    </Grid>
+
+    <Grid
+        Grid.Row="3"
+        Margin="0,14,0,0"
+        ColumnDefinitions="*,Auto">
+      <TextBlock
+          VerticalAlignment="Center"
+          FontSize="12"
+          Foreground="#7186AD"
+          Text="{Binding StatusMessage}"
+          TextWrapping="Wrap" />
+      <Button
+          Grid.Column="1"
+          MinWidth="120"
+          AutomationProperties.Name="Load more projects"
+          Classes="secondary"
+          Command="{Binding LoadMoreCommand}"
+          IsVisible="{Binding HasMore}">
+        <StackPanel Orientation="Horizontal" Spacing="8">
+          <PathIcon
+              Width="16"
+              Height="16"
+              Data="{StaticResource LoadMoreIcon}" />
+          <TextBlock VerticalAlignment="Center" Text="Load more" />
+        </StackPanel>
+      </Button>
+    </Grid>
+
+    <StackPanel
+        Grid.Row="4"
+        Margin="0,20,0,0"
+        HorizontalAlignment="Right"
+        Orientation="Horizontal"
+        Spacing="10">
+      <Button
+          MinWidth="90"
+          Click="Close_Click"
+          Content="Close" />
+      <Button
+          MinWidth="130"
+          AutomationProperties.Name="Open selected project"
+          Classes="primary"
+          Command="{Binding OpenSelectedCommand}">
+        <StackPanel Orientation="Horizontal" Spacing="8">
+          <PathIcon
+              Width="16"
+              Height="16"
+              Data="{StaticResource OpenFileIcon}" />
+          <TextBlock VerticalAlignment="Center" Text="Open project" />
+        </StackPanel>
+      </Button>
+    </StackPanel>
+  </Grid>
+</Window>
