@@ -339,11 +339,12 @@ resource streams at runtime and uses Markdig to build standalone HTML.
 Model-generated content is not involved.
 
 Raw Markdown HTML is disabled. The generated document adds a CSP that blocks
-scripts, network connections, forms, frames, objects, and external images.
-The About WebView may navigate only to its in-memory document; HTTP and HTTPS
-links are intercepted and delegated to the default browser. If no embedded
-WebView adapter is available, the same embedded Markdown is shown as
-selectable text.
+scripts, network connections, forms, frames, and objects. Images are limited
+to embedded `data:` sources and HTTPS badges from `img.shields.io`; other
+remote image hosts remain blocked. The About WebView may navigate only to its
+in-memory document; HTTP and HTTPS links are intercepted and delegated to the
+default browser. If no embedded WebView adapter is available, the same
+embedded Markdown is shown as selectable text.
 
 ### Authentication
 
