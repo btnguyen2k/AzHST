@@ -58,7 +58,7 @@ public sealed class EmbeddedMarkdownDocumentLoader
             <head>
               <meta charset="utf-8">
               <meta name="viewport" content="width=device-width, initial-scale=1">
-              <meta http-equiv="Content-Security-Policy" content="default-src 'none'; base-uri 'none'; connect-src 'none'; font-src 'none'; form-action 'none'; frame-src 'none'; img-src data:; object-src 'none'; script-src 'none'; style-src 'unsafe-inline'">
+              <meta http-equiv="Content-Security-Policy" content="default-src 'none'; base-uri 'none'; connect-src 'none'; font-src 'none'; form-action 'none'; frame-src 'none'; img-src data: https://img.shields.io; object-src 'none'; script-src 'none'; style-src 'unsafe-inline'">
               <meta name="referrer" content="no-referrer">
               <title>{{encodedTitle}}</title>
               <style>

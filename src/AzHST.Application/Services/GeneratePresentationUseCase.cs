@@ -16,16 +16,16 @@ public sealed partial class GeneratePresentationUseCase
     public const int MaximumComparisonNodesPerSlide = 4;
     public const int MaximumCardNodesPerSlide = 6;
 
-    private const int MaximumTitleLength = 120;
-    private const int MaximumSubtitleLength = 240;
-    private const int MaximumSectionTitleLength = 100;
-    private const int MaximumSlideSubtitleLength = 160;
-    private const int MaximumSummaryLength = 420;
+    public const int MaximumTitleLength = 120;
+    public const int MaximumSubtitleLength = 240;
+    public const int MaximumSectionTitleLength = 100;
+    public const int MaximumSlideSubtitleLength = 160;
+    public const int MaximumSummaryLength = 420;
     public const int MaximumCalloutLength = 280;
-    private const int MaximumBulletLength = 180;
-    private const int MaximumNodeLabelLength = 80;
-    private const int MaximumNodeDetailLength = 220;
-    private const int MaximumConnectionLabelLength = 60;
+    public const int MaximumBulletLength = 180;
+    public const int MaximumNodeLabelLength = 80;
+    public const int MaximumNodeDetailLength = 220;
+    public const int MaximumConnectionLabelLength = 60;
     private const int MaximumSourcesPerSlide =
         PresentationSourcePolicy.MaximumSourceCount;
     private const int MaximumSourceLength =
@@ -77,10 +77,10 @@ public sealed partial class GeneratePresentationUseCase
                 "The original visualization question is unavailable.");
         }
 
-        if (normalizedQuery.Length > GenerateVisualizationUseCase.MaximumQueryLength)
+        if (normalizedQuery.Length > CreateProjectUseCase.MaximumQueryLength)
         {
             throw new PresentationGenerationException(
-                $"The question exceeds {GenerateVisualizationUseCase.MaximumQueryLength:N0} characters.");
+                $"The question exceeds {CreateProjectUseCase.MaximumQueryLength:N0} characters.");
         }
 
         if (string.IsNullOrWhiteSpace(visualization.Id)
@@ -133,7 +133,7 @@ public sealed partial class GeneratePresentationUseCase
         }
 
         var title = RequireText(plan.Title, "presentation title", MaximumTitleLength);
-        var subtitle = OptionalText(plan.Subtitle, "presentation subtitle", MaximumSubtitleLength);
+        var subtitle = OptionalText(plan.Subtitle, MaximumSubtitleLength);
         var slides = plan.Slides
             ?? throw new PresentationGenerationException(
                 "Copilot returned a presentation plan without slides.");
@@ -257,7 +257,6 @@ public sealed partial class GeneratePresentationUseCase
             MaximumTitleLength);
         var sectionTitle = OptionalText(
             slide.SectionTitle,
-            $"slide {slideNumber} section title",
             MaximumSectionTitleLength);
         if (string.Equals(
             sectionTitle,
@@ -268,17 +267,13 @@ public sealed partial class GeneratePresentationUseCase
         }
         var subtitle = OptionalText(
             slide.Subtitle,
-            $"slide {slideNumber} subtitle",
             MaximumSlideSubtitleLength);
         var summary = OptionalText(
             slide.Summary,
-            $"slide {slideNumber} summary",
             MaximumSummaryLength);
         var callout = OptionalText(
             slide.Callout,
-            $"slide {slideNumber} callout",
-            MaximumCalloutLength,
-            truncateOverflow: true);
+            MaximumCalloutLength);
         var bullets = ValidateTextList(
             slide.Bullets,
             $"slide {slideNumber} bullets",
@@ -417,7 +412,6 @@ public sealed partial class GeneratePresentationUseCase
                     MaximumNodeLabelLength),
                 Detail = OptionalText(
                     node.Detail,
-                    $"slide {slideNumber} node detail",
                     MaximumNodeDetailLength),
                 IconKey = iconKey,
                 Tone = tone,
@@ -466,7 +460,6 @@ public sealed partial class GeneratePresentationUseCase
                 To = to,
                 Label = OptionalText(
                     connection.Label,
-                    $"slide {slideNumber} connection label",
                     MaximumConnectionLabelLength),
             });
         }
@@ -509,8 +502,7 @@ public sealed partial class GeneratePresentationUseCase
 
         if (normalized.Length > maximumLength)
         {
-            throw new PresentationGenerationException(
-                $"The {fieldName} exceeds {maximumLength} characters.");
+            return TruncateWithEllipsis(normalized, maximumLength);
         }
 
         return normalized;
@@ -518,20 +510,12 @@ public sealed partial class GeneratePresentationUseCase
 
     private static string OptionalText(
         string? value,
-        string fieldName,
-        int maximumLength,
-        bool truncateOverflow = false)
+        int maximumLength)
     {
         var normalized = value?.Trim() ?? string.Empty;
         if (normalized.Length > maximumLength)
         {
-            if (truncateOverflow)
-            {
-                return TruncateWithEllipsis(normalized, maximumLength);
-            }
-
-            throw new PresentationGenerationException(
-                $"The {fieldName} exceeds {maximumLength} characters.");
+            return TruncateWithEllipsis(normalized, maximumLength);
         }
 
         return normalized;

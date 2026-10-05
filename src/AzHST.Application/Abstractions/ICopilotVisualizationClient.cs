@@ -10,11 +10,4 @@ public interface ICopilotVisualizationClient
         IProgress<GenerationProgress>? progress = null,
         CancellationToken cancellationToken = default);
 
-    Task<string> GenerateHtmlAsync(
-        string query,
-        string model,
-        string visualizationId,
-        HtmlThemeDefinition theme,
-        IProgress<GenerationProgress>? progress = null,
-        CancellationToken cancellationToken = default);
 }

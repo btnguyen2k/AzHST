@@ -7,6 +7,9 @@ public sealed record ApplicationPaths(
     string CopilotDirectory,
     string SampleQueryDatabaseFile)
 {
+    public string ProjectDatabaseFile { get; init; } =
+        Path.Combine(DataDirectory, "projects.db");
+
     public static ApplicationPaths CreateDefault()
     {
         var localData = Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData);
@@ -28,5 +31,26 @@ public sealed record ApplicationPaths(
             generatedPagesDirectory,
             Path.Combine(dataDirectory, "copilot"),
             sampleQueryDatabaseFile);
+    }
+
+    public static ApplicationPaths CreatePortable()
+    {
+        return CreatePortable(AppContext.BaseDirectory);
+    }
+
+    public static ApplicationPaths CreatePortable(string applicationDirectory)
+    {
+        ArgumentException.ThrowIfNullOrWhiteSpace(applicationDirectory);
+
+        var applicationRoot = Path.TrimEndingDirectorySeparator(
+            Path.GetFullPath(applicationDirectory));
+        var dataDirectory = Path.Combine(applicationRoot, "data");
+
+        return new ApplicationPaths(
+            dataDirectory,
+            Path.Combine(dataDirectory, "settings.json"),
+            Path.Combine(applicationRoot, "generated"),
+            Path.Combine(dataDirectory, "copilot"),
+            Path.Combine(dataDirectory, "azhst.db"));
     }
 }

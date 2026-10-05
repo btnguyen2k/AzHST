@@ -20,6 +20,12 @@ public sealed class EmbeddedMarkdownDocumentLoaderTests
         Assert.Contains("<strong>formatted text</strong>", document.Html);
         Assert.Contains("<table>", document.Html);
         Assert.Contains("Content-Security-Policy", document.Html);
+        Assert.Contains(
+            "img-src data: https://img.shields.io",
+            document.Html);
+        Assert.Contains(
+            "<img src=\"https://img.shields.io/badge/status-ready-green.svg\" alt=\"Status\"",
+            document.Html);
         Assert.Contains("script-src 'none'", document.Html);
         Assert.DoesNotContain("<script>", document.Html);
     }

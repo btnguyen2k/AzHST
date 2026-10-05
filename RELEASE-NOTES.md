@@ -1,5 +1,19 @@
 # AzHST Release Notes
 
+## 2026-10-05 - v0.2.0
+
+### Added/Refactoring/Deprecation
+
+- Feat(presentations): make Professional Night the default PowerPoint theme
+- Feat(projects): reopen saved visualizations and improve them through contextual follow-up requests
+- Feat(presentations): generate PowerPoint reliably from content-rich visualizations
+- Feat(exe): add portable mode, which keeps settings and project history with extracted application files
+- Feat(ui): load a fresh set of sample questions on demand
+
+### Fixed/Improvements
+
+- Patch(visualizations): recover missing Azure icon labels from trusted catalog metadata
+
 ## 2026-10-02 - v0.1.0
 
 ### Added/Refactoring/Deprecation
