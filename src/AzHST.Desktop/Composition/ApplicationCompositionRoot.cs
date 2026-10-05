@@ -43,7 +43,8 @@ internal static class ApplicationCompositionRoot
         var openProjectUseCase = new OpenProjectUseCase(
             projectRepository,
             projectArtifactStore);
-        var listProjectsUseCase = new ListProjectsUseCase(projectRepository);
+        var browseProjectsUseCase = new BrowseProjectsUseCase(
+            projectRepository);
         var refineProjectUseCase = new RefineProjectUseCase(
             copilotClient,
             documentProcessor,
@@ -83,10 +84,13 @@ internal static class ApplicationCompositionRoot
             applicationIdentity,
             webViewAvailability,
             browser);
+        var projectBrowserDialogService = new ProjectBrowserDialogService(
+            () => mainWindow,
+            browseProjectsUseCase);
         var viewModel = new MainWindowViewModel(
             createProjectUseCase,
             openProjectUseCase,
-            listProjectsUseCase,
+            browseProjectsUseCase,
             refineProjectUseCase,
             renameProjectUseCase,
             deleteProjectUseCase,
@@ -102,6 +106,7 @@ internal static class ApplicationCompositionRoot
             settingsDialogService,
             loginDialogService,
             aboutDialogService,
+            projectBrowserDialogService,
             applicationIdentity,
             webViewAvailability,
             testOptions.SkipGitHubSignInAtStartup

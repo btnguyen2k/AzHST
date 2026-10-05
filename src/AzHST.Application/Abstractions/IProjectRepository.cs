@@ -9,6 +9,12 @@ public interface IProjectRepository
     Task<IReadOnlyList<Project>> ListAsync(
         CancellationToken cancellationToken = default);
 
+    Task<ProjectSummaryPage> ListSummariesAsync(
+        string searchText,
+        int offset,
+        int pageSize,
+        CancellationToken cancellationToken = default);
+
     Task<Project?> GetAsync(
         string projectId,
         CancellationToken cancellationToken = default);

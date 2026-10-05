@@ -134,14 +134,14 @@
                   Grid.Column="1"
                   MinHeight="32"
                   Padding="9,5"
-                  AutomationProperties.Name="Create new project"
+                  AutomationProperties.Name="Browse projects"
                   Classes="secondary"
-                  Command="{Binding GoHomeCommand}"
-                  ToolTip.Tip="Create new project">
+                  Command="{Binding BrowseProjectsCommand}"
+                  ToolTip.Tip="Browse projects">
                 <PathIcon
                     Width="15"
                     Height="15"
-                    Data="{StaticResource NewProjectIcon}" />
+                    Data="{StaticResource SearchIcon}" />
               </Button>
             </Grid>
             <TextBlock

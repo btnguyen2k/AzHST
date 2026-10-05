@@ -75,7 +75,8 @@ public sealed class SqliteProjectRepository : IProjectRepository
             SqliteOpenMode.ReadOnly,
             cancellationToken);
         await using var command = CreateSelectCommand(connection);
-        command.CommandText += " ORDER BY projects.updated_utc DESC;";
+        command.CommandText +=
+            " ORDER BY projects.updated_utc DESC, projects.id DESC;";
 
         var projects = new List<Project>();
         await using var reader = await command.ExecuteReaderAsync(cancellationToken);
@@ -85,6 +86,69 @@ public sealed class SqliteProjectRepository : IProjectRepository
         }
 
         return projects;
+    }
+
+    public async Task<ProjectSummaryPage> ListSummariesAsync(
+        string searchText,
+        int offset,
+        int pageSize,
+        CancellationToken cancellationToken = default)
+    {
+        ArgumentNullException.ThrowIfNull(searchText);
+        ArgumentOutOfRangeException.ThrowIfNegative(offset);
+        ArgumentOutOfRangeException.ThrowIfLessThan(pageSize, 1);
+
+        await InitializeAsync(cancellationToken);
+        await using var connection = await OpenConnectionAsync(
+            SqliteOpenMode.ReadOnly,
+            cancellationToken);
+        await using var command = connection.CreateCommand();
+        command.CommandText = string.IsNullOrWhiteSpace(searchText)
+            ? """
+              SELECT id, title, original_query, updated_utc
+              FROM projects
+              ORDER BY updated_utc DESC, id DESC
+              LIMIT $limit OFFSET $offset;
+              """
+            : """
+              SELECT id, title, original_query, updated_utc
+              FROM projects
+              WHERE title LIKE $search ESCAPE '\' COLLATE NOCASE
+                  OR original_query LIKE $search ESCAPE '\' COLLATE NOCASE
+              ORDER BY updated_utc DESC, id DESC
+              LIMIT $limit OFFSET $offset;
+              """;
+        command.Parameters.AddWithValue("$limit", pageSize + 1);
+        command.Parameters.AddWithValue("$offset", offset);
+        if (!string.IsNullOrWhiteSpace(searchText))
+        {
+            command.Parameters.AddWithValue(
+                "$search",
+                $"%{EscapeLikePattern(searchText.Trim())}%");
+        }
+
+        var projects = new List<ProjectSummary>(pageSize + 1);
+        await using var reader = await command.ExecuteReaderAsync(
+            cancellationToken);
+        while (await reader.ReadAsync(cancellationToken))
+        {
+            projects.Add(new ProjectSummary(
+                reader.GetString(0),
+                reader.GetString(1),
+                reader.GetString(2),
+                ParseTimestamp(reader.GetString(3))));
+        }
+
+        var hasMore = projects.Count > pageSize;
+        if (hasMore)
+        {
+            projects.RemoveAt(projects.Count - 1);
+        }
+
+        return new ProjectSummaryPage(
+            projects,
+            hasMore,
+            offset + projects.Count);
     }
 
     public async Task<Project?> GetAsync(
@@ -593,5 +657,13 @@ public sealed class SqliteProjectRepository : IProjectRepository
         }
 
         return parsed;
+    }
+
+    private static string EscapeLikePattern(string value)
+    {
+        return value
+            .Replace(@"\", @"\\", StringComparison.Ordinal)
+            .Replace("%", @"\%", StringComparison.Ordinal)
+            .Replace("_", @"\_", StringComparison.Ordinal);
     }
 }

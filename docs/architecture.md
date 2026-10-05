@@ -92,7 +92,8 @@ Infrastructure implements the application ports:
 - `JsonSettingsRepository` performs atomic JSON settings writes
 - `SqliteSampleQueryRepository` validates or resets `data\azhst.db`, then performs transactional sample-query replacement and random selection
 - `SqliteProjectRepository` validates the non-resettable per-user
-  `projects.db` and transactionally stores projects with revision `000`
+  `projects.db`, transactionally stores projects with revision `000`, and
+  pages lightweight searchable project summaries
 - `FileProjectArtifactStore` atomically creates or replaces UTF-8
   `index.html` under each project revision directory
 - `ExternalBrowserLauncher` delegates file URIs to the operating system
@@ -110,8 +111,11 @@ The Avalonia project is the composition root and presentation layer:
 
 - `App` and `ApplicationCompositionRoot` construct concrete services
 - view models expose state and asynchronous commands
-- views define the desktop shell and tabbed settings/about dialogs
+- views define the desktop shell and settings, about, and project-browser
+  dialogs
 - `SettingsDialogService` contains window-specific dialog behavior
+- `ProjectBrowserDialogService` presents a paged, searchable, virtualized
+  history while the sidebar stays bounded to recent and active projects
 - `AboutDialogService` reads the Desktop assembly's embedded ABOUT document and release
   notes, then supplies their runtime-rendered HTML to the About window
 

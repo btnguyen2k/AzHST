@@ -71,6 +71,79 @@ public sealed class SqliteProjectRepositoryTests : IDisposable
     }
 
     [Fact]
+    public async Task ListSummariesAsync_PagesAndSearchesRecentProjects()
+    {
+        var repository = new SqliteProjectRepository(CreatePaths());
+        for (var index = 1; index <= 5; index++)
+        {
+            await repository.SaveAsync(CreateProject(
+                $"project-{index}",
+                $"Project {index}",
+                index == 3
+                    ? "Design an Application Gateway"
+                    : $"Explain Azure service {index}",
+                CreatedUtc.AddMinutes(index)));
+        }
+
+        var firstPage = await repository.ListSummariesAsync(
+            string.Empty,
+            offset: 0,
+            pageSize: 2);
+        var secondPage = await repository.ListSummariesAsync(
+            string.Empty,
+            firstPage.NextOffset,
+            pageSize: 2);
+        var searchPage = await repository.ListSummariesAsync(
+            "GATEWAY",
+            offset: 0,
+            pageSize: 10);
+
+        Assert.Equal(
+            ["project-5", "project-4"],
+            firstPage.Items.Select(project => project.Id));
+        Assert.True(firstPage.HasMore);
+        Assert.Equal(2, firstPage.NextOffset);
+        Assert.Equal(
+            ["project-3", "project-2"],
+            secondPage.Items.Select(project => project.Id));
+        Assert.True(secondPage.HasMore);
+        Assert.Equal("project-3", Assert.Single(searchPage.Items).Id);
+        Assert.False(searchPage.HasMore);
+    }
+
+    [Theory]
+    [InlineData("%", "literal-percent")]
+    [InlineData("_", "literal-underscore")]
+    [InlineData(@"\", "literal-backslash")]
+    public async Task ListSummariesAsync_TreatsLikeWildcardsAsLiteralText(
+        string searchText,
+        string expectedProjectId)
+    {
+        var repository = new SqliteProjectRepository(CreatePaths());
+        await repository.SaveAsync(CreateProject(
+            "literal-percent",
+            "Cost 100% estimate"));
+        await repository.SaveAsync(CreateProject(
+            "literal-underscore",
+            "Subnet_name design"));
+        await repository.SaveAsync(CreateProject(
+            "literal-backslash",
+            @"Hybrid\cloud design"));
+        await repository.SaveAsync(CreateProject(
+            "ordinary",
+            "Ordinary project"));
+
+        var page = await repository.ListSummariesAsync(
+            searchText,
+            offset: 0,
+            pageSize: 10);
+
+        Assert.Equal(
+            expectedProjectId,
+            Assert.Single(page.Items).Id);
+    }
+
+    [Fact]
     public async Task InitializeAsync_DoesNotResetInvalidProjectDatabase()
     {
         var paths = CreatePaths();
@@ -114,24 +187,29 @@ public sealed class SqliteProjectRepositoryTests : IDisposable
         };
     }
 
-    private static Project CreateProject()
+    private static Project CreateProject(
+        string id = "project-id",
+        string title = "Azure Functions",
+        string originalQuery = "Explain Azure Functions",
+        DateTimeOffset? updatedUtc = null)
     {
+        var timestamp = updatedUtc ?? CreatedUtc;
         return new Project(
-            "project-id",
-            "Azure Functions",
-            "Explain Azure Functions",
-            "session-id",
+            id,
+            title,
+            originalQuery,
+            $"session-{id}",
             CreatedUtc,
-            CreatedUtc,
+            timestamp,
             CopilotModelSelection.Automatic,
             OutputThemeSettings.DefaultHtmlThemeId,
             OutputThemeSettings.DefaultPresentationThemeId,
             new ProjectRevision(
-                "project-id",
+                id,
                 ProjectRevisionIds.Current,
-                @"C:\output\project-id\000\index.html",
+                $@"C:\output\{id}\000\index.html",
                 null,
                 ProjectGenerationStatus.Ready,
-                CreatedUtc));
+                timestamp));
     }
 }

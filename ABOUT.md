@@ -84,8 +84,9 @@ operating-system user.
 
 4. **Continue the conversation.** Enter a follow-up request and select
    **Refine visualization**. AzHST updates revision `000` while preserving the
-   previous valid result if generation fails. Reopen saved work from the
-   **Projects** list.
+   previous valid result if generation fails. The sidebar keeps the three most
+   recently updated projects and pins the active project when needed. Select
+   **Browse projects** to search and reopen the complete project history.
 
 5. **Explore or share the result.** Review it inside AzHST or select
    **Open in browser**.

@@ -12,9 +12,11 @@ namespace AzHST.Desktop.ViewModels;
 
 public sealed partial class MainWindowViewModel : ObservableObject
 {
+    private const int RecentProjectCount = 3;
+
     private readonly CreateProjectUseCase _createProjectUseCase;
     private readonly OpenProjectUseCase _openProjectUseCase;
-    private readonly ListProjectsUseCase _listProjectsUseCase;
+    private readonly BrowseProjectsUseCase _browseProjectsUseCase;
     private readonly RefineProjectUseCase _refineProjectUseCase;
     private readonly RenameProjectUseCase _renameProjectUseCase;
     private readonly DeleteProjectUseCase _deleteProjectUseCase;
@@ -31,8 +33,11 @@ public sealed partial class MainWindowViewModel : ObservableObject
     private readonly ISettingsDialogService _settingsDialogService;
     private readonly IGitHubLoginDialogService _loginDialogService;
     private readonly IAboutDialogService _aboutDialogService;
+    private readonly IProjectBrowserDialogService
+        _projectBrowserDialogService;
     private readonly WebViewAvailability _webViewAvailability;
     private readonly bool _skipGitHubSignInAtStartup;
+    private IReadOnlyList<ProjectSummary> _recentProjects = [];
     private Project? _activeProject;
     private VisualizationArtifact? _visualizationArtifact;
     private string _generatedQuery = string.Empty;
@@ -105,7 +110,7 @@ public sealed partial class MainWindowViewModel : ObservableObject
     public MainWindowViewModel(
         CreateProjectUseCase createProjectUseCase,
         OpenProjectUseCase openProjectUseCase,
-        ListProjectsUseCase listProjectsUseCase,
+        BrowseProjectsUseCase browseProjectsUseCase,
         RefineProjectUseCase refineProjectUseCase,
         RenameProjectUseCase renameProjectUseCase,
         DeleteProjectUseCase deleteProjectUseCase,
@@ -121,13 +126,14 @@ public sealed partial class MainWindowViewModel : ObservableObject
         ISettingsDialogService settingsDialogService,
         IGitHubLoginDialogService loginDialogService,
         IAboutDialogService aboutDialogService,
+        IProjectBrowserDialogService projectBrowserDialogService,
         ApplicationIdentity applicationIdentity,
         WebViewAvailability webViewAvailability,
         bool skipGitHubSignInAtStartup = false)
     {
         _createProjectUseCase = createProjectUseCase;
         _openProjectUseCase = openProjectUseCase;
-        _listProjectsUseCase = listProjectsUseCase;
+        _browseProjectsUseCase = browseProjectsUseCase;
         _refineProjectUseCase = refineProjectUseCase;
         _renameProjectUseCase = renameProjectUseCase;
         _deleteProjectUseCase = deleteProjectUseCase;
@@ -144,6 +150,7 @@ public sealed partial class MainWindowViewModel : ObservableObject
         _settingsDialogService = settingsDialogService;
         _loginDialogService = loginDialogService;
         _aboutDialogService = aboutDialogService;
+        _projectBrowserDialogService = projectBrowserDialogService;
         ApplicationIdentityText = applicationIdentity.DisplayText;
         _webViewAvailability = webViewAvailability;
         _skipGitHubSignInAtStartup = skipGitHubSignInAtStartup;
@@ -366,10 +373,33 @@ public sealed partial class MainWindowViewModel : ObservableObject
     private async Task LoadProjectsAsync(
         CancellationToken cancellationToken = default)
     {
-        var projects = await _listProjectsUseCase.ExecuteAsync(
-            cancellationToken);
+        var page = await _browseProjectsUseCase.ExecuteAsync(
+            pageSize: RecentProjectCount,
+            cancellationToken: cancellationToken);
+        _recentProjects = page.Items;
+        RefreshSidebarProjects();
+    }
+
+    private void RefreshSidebarProjects()
+    {
         var activeProjectId = _activeProject?.Id;
-        var options = projects
+        var visibleProjects = _recentProjects.ToList();
+        if (_activeProject is not null
+            && !visibleProjects.Any(project => string.Equals(
+                project.Id,
+                _activeProject.Id,
+                StringComparison.Ordinal)))
+        {
+            visibleProjects.Insert(
+                0,
+                new ProjectSummary(
+                    _activeProject.Id,
+                    _activeProject.Title,
+                    _activeProject.OriginalQuery,
+                    _activeProject.UpdatedUtc));
+        }
+
+        var options = visibleProjects
             .Select(project => new ProjectOptionViewModel(
                 project,
                 string.Equals(
@@ -387,6 +417,7 @@ public sealed partial class MainWindowViewModel : ObservableObject
 
         OnPropertyChanged(nameof(HasProjects));
         OnPropertyChanged(nameof(HasNoProjects));
+        BrowseProjectsCommand.NotifyCanExecuteChanged();
     }
 
     private static string ResolveThemeName(
@@ -720,6 +751,41 @@ public sealed partial class MainWindowViewModel : ObservableObject
         }
     }
 
+    private bool CanBrowseProjects()
+    {
+        return !IsBusy && HasProjects;
+    }
+
+    [RelayCommand(CanExecute = nameof(CanBrowseProjects))]
+    private async Task BrowseProjectsAsync()
+    {
+        try
+        {
+            var projectId = await _projectBrowserDialogService.ShowAsync(
+                _activeProject?.Id);
+            if (string.IsNullOrWhiteSpace(projectId))
+            {
+                return;
+            }
+
+            if (string.Equals(
+                    projectId,
+                    _activeProject?.Id,
+                    StringComparison.Ordinal))
+            {
+                StatusMessage = "The selected project is already open.";
+                return;
+            }
+
+            await OpenProjectAsync(projectId);
+        }
+        catch (Exception exception)
+        {
+            StatusMessage =
+                $"Could not browse projects: {exception.Message}";
+        }
+    }
+
     private async Task OpenProjectAsync(string projectId)
     {
         if (IsBusy)
@@ -930,6 +996,7 @@ public sealed partial class MainWindowViewModel : ObservableObject
         PreviewUri = null;
         PresentationFilePath = null;
         PresentationUri = null;
+        RefreshSidebarProjects();
         BuildPowerPointCommand.NotifyCanExecuteChanged();
     }
 
@@ -968,6 +1035,7 @@ public sealed partial class MainWindowViewModel : ObservableObject
                     workspace.Project.PresentationThemeId,
             },
         };
+        RefreshSidebarProjects();
         BuildPowerPointCommand.NotifyCanExecuteChanged();
     }
 
@@ -1137,6 +1205,7 @@ public sealed partial class MainWindowViewModel : ObservableObject
         OpenPresentationFolderCommand.NotifyCanExecuteChanged();
         OpenSettingsCommand.NotifyCanExecuteChanged();
         OpenAboutCommand.NotifyCanExecuteChanged();
+        BrowseProjectsCommand.NotifyCanExecuteChanged();
         GoHomeCommand.NotifyCanExecuteChanged();
         RefreshSampleQueriesCommand.NotifyCanExecuteChanged();
         RenameProjectCommand.NotifyCanExecuteChanged();

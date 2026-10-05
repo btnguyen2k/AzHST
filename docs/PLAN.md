@@ -158,8 +158,10 @@ Infrastructure implementations:
 
 The Desktop layer adds:
 
-- a project browser ordered by the most recently updated project
-- a **New project** action
+- three recent sidebar projects plus the active project when it falls outside
+  that recent range
+- a paged **Browse projects** dialog with title/query search
+- a **New project** action in the main project header
 - a follow-up input when a project is open
 - project rename and delete actions
 - loading, empty, failed, and conversation-unavailable states
@@ -185,7 +187,7 @@ The Desktop layer adds:
    create/resume/delete implementation.
 3. Convert new visualization generation into project creation with revision
    `000`.
-4. Add the project browser and reopen behavior.
+4. Add the bounded recent-project sidebar and paged project browser.
 5. Add follow-up refinement that resumes the project conversation and replaces
    revision `000`.
 6. Add project deletion, missing-session handling, cancellation, retry, and

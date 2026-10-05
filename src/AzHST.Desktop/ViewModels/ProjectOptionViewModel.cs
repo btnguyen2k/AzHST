@@ -7,7 +7,7 @@ namespace AzHST.Desktop.ViewModels;
 public sealed partial class ProjectOptionViewModel : ObservableObject
 {
     public ProjectOptionViewModel(
-        Project project,
+        ProjectSummary project,
         bool isActive,
         Func<string, Task> openProject)
     {

@@ -493,6 +493,39 @@ public sealed class ProjectUseCaseTests : IDisposable
                     .ToArray());
         }
 
+        public Task<ProjectSummaryPage> ListSummariesAsync(
+            string searchText,
+            int offset,
+            int pageSize,
+            CancellationToken cancellationToken = default)
+        {
+            var matches = _projects.Values
+                .Where(project => searchText.Length == 0
+                    || project.Title.Contains(
+                        searchText,
+                        StringComparison.OrdinalIgnoreCase)
+                    || project.OriginalQuery.Contains(
+                        searchText,
+                        StringComparison.OrdinalIgnoreCase))
+                .OrderByDescending(project => project.UpdatedUtc)
+                .ThenByDescending(project => project.Id, StringComparer.Ordinal)
+                .Select(project => new ProjectSummary(
+                    project.Id,
+                    project.Title,
+                    project.OriginalQuery,
+                    project.UpdatedUtc))
+                .ToArray();
+            var page = matches
+                .Skip(offset)
+                .Take(pageSize)
+                .ToArray();
+
+            return Task.FromResult(new ProjectSummaryPage(
+                page,
+                offset + page.Length < matches.Length,
+                offset + page.Length));
+        }
+
         public Task<Project?> GetAsync(
             string projectId,
             CancellationToken cancellationToken = default)
