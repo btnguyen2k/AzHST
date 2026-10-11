@@ -217,7 +217,7 @@ jobs:
           "package_path=$archivePath" >> $env:GITHUB_OUTPUT
           "checksum_path=$checksumPath" >> $env:GITHUB_OUTPUT
       - name: Upload application package
-        uses: actions/upload-artifact@v7.0.1
+        uses: actions/upload-artifact@v7.0.2
         with:
           name: AzHST-${{ steps.version.outputs.version }}-${{ matrix.rid }}
           path: |
