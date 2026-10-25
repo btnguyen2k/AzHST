@@ -36,7 +36,7 @@ jobs:
           fetch-depth: 0
       - name: Analyze the next release
         id: semrelease
-        uses: btnguyen2k/action-semrelease@v4.0.0
+        uses: btnguyen2k/action-semrelease@v5.1.0
         with:
           dry-run: true
           auto-mode: true
